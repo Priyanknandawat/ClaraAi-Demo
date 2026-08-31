@@ -194,6 +194,7 @@ export default function ClaraAiPlatform() {
   const [candidateApplying, setCandidateApplying] = useState<boolean>(false);
   const [candidateAppliedSuccess, setCandidateAppliedSuccess] = useState<boolean>(false);
   const [candidateCategoryFilter, setCandidateCategoryFilter] = useState<string>("all");
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState<string>("");
 
   // Settings states
   const [tempApiKey, setTempApiKey] = useState<string>("");
@@ -204,6 +205,18 @@ export default function ClaraAiPlatform() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterJobId, setFilterJobId] = useState<string>("all");
   const [filterFit, setFilterFit] = useState<string>("all");
+
+  // Lock background scroll when modal is open to prevent background text bleed
+  useEffect(() => {
+    if (candidatePortalJob) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [candidatePortalJob]);
 
   // Load database jobs and screenings on mount (with localStorage fallback)
   useEffect(() => {
@@ -360,8 +373,6 @@ export default function ClaraAiPlatform() {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
-    // Auto-sanitization for phone and age
     let sanitizedValue = value;
     if (name === "phone") {
       sanitizedValue = value.replace(/[^0-9+\s\-()]/g, "");
@@ -799,11 +810,28 @@ export default function ClaraAiPlatform() {
     }
   };
 
+  // Candidate Career Portal filtered jobs
+  const getFilteredCareerJobs = () => {
+    return jobOpeningsList.filter(job => {
+      const matchesCategory = candidateCategoryFilter === "all" || 
+        job.title.toLowerCase().includes(candidateCategoryFilter.toLowerCase()) || 
+        job.company.toLowerCase().includes(candidateCategoryFilter.toLowerCase()) ||
+        job.description.toLowerCase().includes(candidateCategoryFilter.toLowerCase());
+
+      const matchesSearch = !candidateSearchQuery.trim() || 
+        job.title.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
+        job.company.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
+        job.description.toLowerCase().includes(candidateSearchQuery.toLowerCase());
+
+      return matchesCategory && matchesSearch;
+    });
+  };
+
   return (
     <div className="min-h-screen text-slate-900 font-sans antialiased selection:bg-blue-500 selection:text-white flex flex-col justify-between">
       
-      {/* APPLE-INSPIRED TRANSLUCENT NAVIGATION BAR */}
-      <header className="sticky top-0 z-50 glass-panel border-b border-white/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+      {/* SOLID FROSTED APPLE NAVIGATION BAR (NO BACKGROUND TEXT OVERLAY) */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           
           {/* Logo & Brand Identity */}
@@ -824,7 +852,7 @@ export default function ClaraAiPlatform() {
             </div>
 
             {/* Mobile Mode Switcher */}
-            <div className="md:hidden flex p-1 bg-slate-200/70 rounded-xl backdrop-blur-md">
+            <div className="md:hidden flex p-1 bg-slate-100 rounded-xl">
               <button
                 onClick={() => setPortalMode("recruiter")}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${portalMode === "recruiter" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
@@ -841,13 +869,13 @@ export default function ClaraAiPlatform() {
           </div>
 
           {/* Center: Apple-style Segmented Portal Controller (Desktop) */}
-          <div className="hidden md:flex items-center gap-2 p-1.5 bg-slate-200/60 rounded-2xl backdrop-blur-lg border border-white/50 shadow-inner">
+          <div className="hidden md:flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-inner">
             <button
               onClick={() => { setPortalMode("recruiter"); setActiveTab("dashboard"); }}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
                 portalMode === "recruiter" 
-                  ? "bg-white text-slate-950 shadow-[0_2px_8px_rgba(0,0,0,0.08)] scale-100" 
-                  : "text-slate-600 hover:text-slate-950 hover:bg-white/40"
+                  ? "bg-white text-slate-950 shadow-sm scale-100" 
+                  : "text-slate-600 hover:text-slate-950"
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-600">
@@ -858,10 +886,10 @@ export default function ClaraAiPlatform() {
 
             <button
               onClick={() => { setPortalMode("candidate"); setCandidatePortalJob(null); }}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
                 portalMode === "candidate" 
-                  ? "bg-white text-blue-600 shadow-[0_2px_8px_rgba(0,0,0,0.08)] scale-100" 
-                  : "text-slate-600 hover:text-slate-950 hover:bg-white/40"
+                  ? "bg-white text-blue-600 shadow-sm scale-100" 
+                  : "text-slate-600 hover:text-slate-950"
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-emerald-600">
@@ -936,8 +964,8 @@ export default function ClaraAiPlatform() {
           <div className="animate-fadeIn space-y-12">
             
             {/* Apple-style Hero Section */}
-            <div className="relative text-center max-w-3xl mx-auto pt-4 pb-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm mb-6 animate-scaleIn">
+            <div className="relative text-center max-w-3xl mx-auto pt-6 pb-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-700 shadow-sm mb-6 animate-scaleIn">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 We are actively hiring visionary talent
               </div>
@@ -949,8 +977,24 @@ export default function ClaraAiPlatform() {
                 Join our forward-thinking teams. Blend commercial acumen with ancient Indian ethos, solve complex challenges, and unleash your leadership potential.
               </p>
 
+              {/* Search input for Candidate Careers */}
+              <div className="mt-8 max-w-lg mx-auto">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search by role title, keyword, or company..."
+                    value={candidateSearchQuery}
+                    onChange={(e) => setCandidateSearchQuery(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-white rounded-2xl border border-slate-300 shadow-sm text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 pl-11"
+                  />
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-400 absolute left-4 top-4">
+                    <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+
               {/* Category Filters */}
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                 {["all", "Founders Office", "Consulting", "Strategy", "Operations"].map((cat) => (
                   <button
                     key={cat}
@@ -958,7 +1002,7 @@ export default function ClaraAiPlatform() {
                     className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
                       candidateCategoryFilter === cat
                         ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 scale-105"
-                        : "bg-white/80 text-slate-600 hover:bg-white border border-slate-200"
+                        : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
                     }`}
                   >
                     {cat === "all" ? "All Positions" : cat}
@@ -969,282 +1013,315 @@ export default function ClaraAiPlatform() {
 
             {/* Job Openings Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {jobOpeningsList.map((job) => (
-                <div 
-                  key={job.id} 
-                  className="glass-panel glass-card-hover rounded-3xl p-7 flex flex-col justify-between border border-white/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)]"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                        {job.company}
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-medium">Full-time • Hybrid</span>
-                    </div>
+              {getFilteredCareerJobs().length === 0 ? (
+                <div className="col-span-full p-12 text-center bg-white rounded-3xl border border-dashed border-slate-300 space-y-2">
+                  <p className="text-sm font-semibold text-slate-800">No open requisitions match your search.</p>
+                  <button
+                    onClick={() => { setCandidateCategoryFilter("all"); setCandidateSearchQuery(""); }}
+                    className="text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    Reset filters and view all roles
+                  </button>
+                </div>
+              ) : (
+                getFilteredCareerJobs().map((job) => (
+                  <div 
+                    key={job.id} 
+                    className="bg-white rounded-3xl p-7 flex flex-col justify-between border border-slate-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_35px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                          {job.company}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">Full-time • Hybrid</span>
+                      </div>
 
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-950 group-hover:text-blue-600 transition-colors">
-                        {job.title}
-                      </h3>
-                      <p className="mt-2 text-xs text-slate-600 line-clamp-3 leading-relaxed">
-                        {job.description}
-                      </p>
-                    </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-950">
+                          {job.title}
+                        </h3>
+                        <p className="mt-2 text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                          {job.description}
+                        </p>
+                      </div>
 
-                    {/* Key Requirements Highlights */}
-                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Core Focus</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {job.responsibilities.slice(0, 2).map((resp, i) => (
-                          <span key={i} className="text-[10px] bg-slate-100/80 text-slate-700 px-2.5 py-1 rounded-lg">
-                            {resp.length > 42 ? resp.slice(0, 42) + "..." : resp}
-                          </span>
-                        ))}
+                      {/* Key Requirements Highlights */}
+                      <div className="space-y-2 pt-2 border-t border-slate-100">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Key Focus Areas</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {job.responsibilities.slice(0, 2).map((resp, i) => (
+                            <span key={i} className="text-[10px] bg-slate-50 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-100">
+                              {resp.length > 42 ? resp.slice(0, 42) + "..." : resp}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500">Tier-1 Package</span>
-                    <button
-                      onClick={() => {
-                        setCandidatePortalJob(job);
-                        setCandidateAppliedSuccess(false);
-                        setCandidateFormErrors({});
-                      }}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-600/20"
-                    >
-                      View Role & Apply →
-                    </button>
+                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-500">Tier-1 Package</span>
+                      <button
+                        onClick={() => {
+                          setCandidatePortalJob(job);
+                          setCandidateAppliedSuccess(false);
+                          setCandidateFormErrors({});
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-600/20"
+                      >
+                        View Role & Apply →
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
-            {/* CANDIDATE ROLE & APPLICATION MODAL (OVERLAY ABOVE NAVBAR) */}
+            {/* CANDIDATE ROLE & APPLICATION MODAL (SOLID OPAQUE WHITE DIALOG OVERLAY) */}
             {candidatePortalJob && (
-              <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn">
-                <div className="glass-panel-elevated w-full max-w-3xl rounded-3xl p-6 sm:p-10 my-auto shadow-2xl animate-scaleIn border border-white/90 max-h-[88vh] overflow-y-auto">
+              <div 
+                className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setCandidatePortalJob(null);
+                }}
+              >
+                <div className="bg-white w-full max-w-4xl rounded-3xl shadow-[0_25px_90px_rgba(0,0,0,0.35)] animate-scaleIn border border-slate-200 max-h-[90vh] flex flex-col overflow-hidden my-auto">
                   
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+                  {/* Modal Header */}
+                  <div className="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
                     <div>
-                      <span className="text-xs font-semibold text-blue-600">{candidatePortalJob.company}</span>
-                      <h2 className="text-2xl font-bold text-slate-950">{candidatePortalJob.title}</h2>
+                      <span className="text-xs font-bold text-blue-600">{candidatePortalJob.company}</span>
+                      <h2 className="text-xl sm:text-2xl font-bold text-slate-950">{candidatePortalJob.title}</h2>
                     </div>
                     <button 
                       onClick={() => setCandidatePortalJob(null)}
-                      className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition-colors"
+                      className="w-9 h-9 rounded-full bg-white hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-500 font-bold transition-colors shadow-sm"
                       aria-label="Close dialog"
                     >
                       ✕
                     </button>
                   </div>
 
-                  {candidateAppliedSuccess ? (
-                    <div className="py-12 text-center space-y-4 animate-scaleIn">
-                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                        ✓
-                      </div>
-                      <h3 className="text-xl font-bold text-slate-900">Application Submitted!</h3>
-                      <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                        Thank you for applying for the <span className="font-semibold text-slate-900">{candidatePortalJob.title}</span> position at {candidatePortalJob.company}. Our recruitment intelligence system has received your profile.
-                      </p>
-                      <button
-                        onClick={() => setCandidatePortalJob(null)}
-                        className="mt-4 px-6 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-all"
-                      >
-                        Browse Other Openings
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="py-6 space-y-8">
-                      {/* Job Overview */}
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">About the Role</h4>
-                        <p className="text-xs text-slate-700 leading-relaxed font-normal bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                          {candidatePortalJob.description}
+                  {/* Modal Body */}
+                  <div className="p-6 sm:p-8 overflow-y-auto flex-1 bg-white">
+                    {candidateAppliedSuccess ? (
+                      <div className="py-12 text-center space-y-4 animate-scaleIn">
+                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                          ✓
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-900">Application Submitted!</h3>
+                        <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                          Thank you for applying for the <span className="font-semibold text-slate-900">{candidatePortalJob.title}</span> position at {candidatePortalJob.company}. Our recruitment intelligence system has received your profile.
                         </p>
+                        <button
+                          onClick={() => setCandidatePortalJob(null)}
+                          className="mt-4 px-6 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-all shadow-md"
+                        >
+                          Browse Other Openings
+                        </button>
                       </div>
-
-                      {/* Responsibilities */}
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Key Responsibilities</h4>
-                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {candidatePortalJob.responsibilities.map((item, idx) => (
-                            <li key={idx} className="flex gap-2 text-xs text-slate-700 items-start">
-                              <span className="text-blue-500 font-bold">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Application Form */}
-                      <form onSubmit={handleCandidatePortalApply} className="pt-6 border-t border-slate-200 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-bold text-slate-950">Quick Application Form</h3>
-                          <span className="text-[10px] text-slate-400 font-medium">* Required fields</span>
-                        </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Full Name <span className="text-rose-500 font-bold">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              name="name"
-                              value={candidateForm.name}
-                              onChange={handleCandidateFormChange}
-                              placeholder="e.g. Priyank Nandawat"
-                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                candidateFormErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                              }`}
-                            />
-                            {candidateFormErrors.name && (
-                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.name}</p>
-                            )}
+                        {/* Left Column: Role Details & Requirements */}
+                        <div className="lg:col-span-5 space-y-6 lg:border-r lg:border-slate-100 lg:pr-6">
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">About the Role</h4>
+                            <p className="text-xs text-slate-700 leading-relaxed font-normal bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                              {candidatePortalJob.description}
+                            </p>
                           </div>
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Email Address <span className="text-rose-500 font-bold">*</span>
-                            </label>
-                            <input
-                              type="email"
-                              name="email"
-                              value={candidateForm.email}
-                              onChange={handleCandidateFormChange}
-                              placeholder="priyank@example.com"
-                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                candidateFormErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                              }`}
-                            />
-                            {candidateFormErrors.email && (
-                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.email}</p>
-                            )}
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Key Responsibilities</h4>
+                            <ul className="space-y-2">
+                              {candidatePortalJob.responsibilities.map((item, idx) => (
+                                <li key={idx} className="flex gap-2 text-xs text-slate-700 items-start">
+                                  <span className="text-blue-500 font-bold shrink-0">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Phone Number (Digits only) <span className="text-rose-500 font-bold">*</span>
-                            </label>
-                            <input
-                              type="tel"
-                              name="phone"
-                              value={candidateForm.phone}
-                              onChange={handleCandidateFormChange}
-                              placeholder="+91 93588 80813"
-                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                candidateFormErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                              }`}
-                            />
-                            {candidateFormErrors.phone && (
-                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.phone}</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Current City <span className="text-rose-500 font-bold">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              name="currentLocation"
-                              value={candidateForm.currentLocation}
-                              onChange={handleCandidateFormChange}
-                              placeholder="e.g. Udaipur / Bengaluru"
-                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                candidateFormErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                              }`}
-                            />
-                            {candidateFormErrors.location && (
-                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.location}</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Age (18–99) <span className="text-rose-500 font-bold">*</span>
-                            </label>
-                            <input
-                              type="number"
-                              min="18"
-                              max="99"
-                              name="age"
-                              value={candidateForm.age}
-                              onChange={handleCandidateFormChange}
-                              placeholder="e.g. 24"
-                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                candidateFormErrors.age ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                              }`}
-                            />
-                            {candidateFormErrors.age && (
-                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.age}</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Residential Address
-                            </label>
-                            <input
-                              type="text"
-                              name="address"
-                              value={candidateForm.address}
-                              onChange={handleCandidateFormChange}
-                              placeholder="Optional address details"
-                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
-                            />
+                          <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-1">
+                            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Hiring Process</span>
+                            <p className="text-[11px] text-slate-600">
+                              Applications are screened by Clara AI within 24 hours. Top matches are fast-tracked directly to partner interview rounds.
+                            </p>
                           </div>
                         </div>
 
-                        {/* Resume Upload Box */}
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                            Upload Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
-                          </label>
-                          <div className={`p-5 rounded-2xl border-2 border-dashed transition-colors text-center cursor-pointer relative ${
-                            candidateFormErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
-                          }`}>
-                            <input
-                              type="file"
-                              accept=".docx"
-                              ref={candidateFileInputRef}
-                              onChange={handleCandidateFileChange}
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                            />
-                            <div className="space-y-1">
-                              <p className="text-xs font-semibold text-slate-800">
-                                {candidateResumeFile ? `Selected: ${candidateResumeFile.name}` : "Click or drag & drop your .docx resume here"}
-                              </p>
-                              <p className="text-[10px] text-slate-500">Microsoft Word (.docx) format up to 5MB</p>
+                        {/* Right Column: Application Form */}
+                        <div className="lg:col-span-7 space-y-5">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 className="text-sm font-bold text-slate-950">Candidate Application Form</h3>
+                            <span className="text-[10px] text-slate-400 font-medium">* Required fields</span>
+                          </div>
+
+                          <form onSubmit={handleCandidatePortalApply} className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Full Name <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  name="name"
+                                  value={candidateForm.name}
+                                  onChange={handleCandidateFormChange}
+                                  placeholder="e.g. Priyank Nandawat"
+                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                    candidateFormErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                                  }`}
+                                />
+                                {candidateFormErrors.name && (
+                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.name}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Email Address <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <input
+                                  type="email"
+                                  name="email"
+                                  value={candidateForm.email}
+                                  onChange={handleCandidateFormChange}
+                                  placeholder="priyank@example.com"
+                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                    candidateFormErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                                  }`}
+                                />
+                                {candidateFormErrors.email && (
+                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.email}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Phone Number (Digits only) <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <input
+                                  type="tel"
+                                  name="phone"
+                                  value={candidateForm.phone}
+                                  onChange={handleCandidateFormChange}
+                                  placeholder="+91 93588 80813"
+                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                    candidateFormErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                                  }`}
+                                />
+                                {candidateFormErrors.phone && (
+                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.phone}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Current City <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  name="currentLocation"
+                                  value={candidateForm.currentLocation}
+                                  onChange={handleCandidateFormChange}
+                                  placeholder="e.g. Udaipur / Bengaluru"
+                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                    candidateFormErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                                  }`}
+                                />
+                                {candidateFormErrors.location && (
+                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.location}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Age (18–99) <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <input
+                                  type="number"
+                                  min="18"
+                                  max="99"
+                                  name="age"
+                                  value={candidateForm.age}
+                                  onChange={handleCandidateFormChange}
+                                  placeholder="e.g. 24"
+                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                    candidateFormErrors.age ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                                  }`}
+                                />
+                                {candidateFormErrors.age && (
+                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.age}</p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Residential Address
+                                </label>
+                                <input
+                                  type="text"
+                                  name="address"
+                                  value={candidateForm.address}
+                                  onChange={handleCandidateFormChange}
+                                  placeholder="Optional address details"
+                                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
+                                />
+                              </div>
                             </div>
-                          </div>
-                          {candidateFormErrors.file && (
-                            <p className="text-[10px] text-rose-500 font-medium mt-1.5">{candidateFormErrors.file}</p>
-                          )}
+
+                            {/* Resume Upload Box */}
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                Upload Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
+                              </label>
+                              <div className={`p-5 rounded-2xl border-2 border-dashed transition-colors text-center cursor-pointer relative ${
+                                candidateFormErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+                              }`}>
+                                <input
+                                  type="file"
+                                  accept=".docx"
+                                  ref={candidateFileInputRef}
+                                  onChange={handleCandidateFileChange}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                />
+                                <div className="space-y-1">
+                                  <p className="text-xs font-semibold text-slate-800">
+                                    {candidateResumeFile ? `Selected: ${candidateResumeFile.name}` : "Click or drag & drop your .docx resume here"}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500">Microsoft Word (.docx) format up to 5MB</p>
+                                </div>
+                              </div>
+                              {candidateFormErrors.file && (
+                                <p className="text-[10px] text-rose-500 font-medium mt-1.5">{candidateFormErrors.file}</p>
+                              )}
+                            </div>
+
+                            <div className="pt-3 flex items-center justify-end gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setCandidatePortalJob(null)}
+                                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={candidateApplying}
+                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
+                              >
+                                {candidateApplying ? "Analyzing & Submitting..." : "Submit Application →"}
+                              </button>
+                            </div>
+                          </form>
                         </div>
 
-                        <div className="pt-4 flex items-center justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setCandidatePortalJob(null)}
-                            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={candidateApplying}
-                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
-                          >
-                            {candidateApplying ? "Analyzing & Submitting..." : "Submit Application →"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
 
                 </div>
               </div>
@@ -1298,7 +1375,7 @@ export default function ClaraAiPlatform() {
 
                 {/* Features Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="glass-panel glass-card-hover rounded-3xl p-7 space-y-3">
+                  <div className="bg-white rounded-3xl p-7 space-y-3 border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
                     <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg font-bold">
                       🎯
                     </div>
@@ -1308,7 +1385,7 @@ export default function ClaraAiPlatform() {
                     </p>
                   </div>
 
-                  <div className="glass-panel glass-card-hover rounded-3xl p-7 space-y-3">
+                  <div className="bg-white rounded-3xl p-7 space-y-3 border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
                     <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-bold">
                       ⚖️
                     </div>
@@ -1318,7 +1395,7 @@ export default function ClaraAiPlatform() {
                     </p>
                   </div>
 
-                  <div className="glass-panel glass-card-hover rounded-3xl p-7 space-y-3">
+                  <div className="bg-white rounded-3xl p-7 space-y-3 border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-md transition-all">
                     <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
                       📥
                     </div>
@@ -1341,7 +1418,7 @@ export default function ClaraAiPlatform() {
 
                 {/* Metrics Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                  <div className="glass-panel glass-card-hover rounded-3xl p-6">
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Screened</span>
                     <div className="mt-2 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-slate-950">{screenings.length}</span>
@@ -1349,7 +1426,7 @@ export default function ClaraAiPlatform() {
                     </div>
                   </div>
 
-                  <div className="glass-panel glass-card-hover rounded-3xl p-6">
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Strong Matches (&gt;=85%)</span>
                     <div className="mt-2 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-emerald-600">
@@ -1359,7 +1436,7 @@ export default function ClaraAiPlatform() {
                     </div>
                   </div>
 
-                  <div className="glass-panel glass-card-hover rounded-3xl p-6">
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Open Job Requisitions</span>
                     <div className="mt-2 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-blue-600">{jobOpeningsList.length}</span>
@@ -1367,7 +1444,7 @@ export default function ClaraAiPlatform() {
                     </div>
                   </div>
 
-                  <div className="glass-panel glass-card-hover rounded-3xl p-6">
+                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Average Match Score</span>
                     <div className="mt-2 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-slate-950">
@@ -1379,7 +1456,7 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {/* Quick Action Banner */}
-                <div className="glass-panel-elevated rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-white">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-200/90 shadow-sm">
                   <div className="space-y-1 text-center md:text-left">
                     <h3 className="text-base font-bold text-slate-950">Ready to compare shortlisted candidates?</h3>
                     <p className="text-xs text-slate-600">Select any role to compare 2 or 3 candidates side-by-side in real-time.</p>
@@ -1399,7 +1476,7 @@ export default function ClaraAiPlatform() {
               <div className="animate-fadeIn space-y-8">
                 
                 {/* Header & Role Selector */}
-                <div className="glass-panel rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border border-slate-200/80 shadow-sm">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Decision Support Matrix</span>
                     <h2 className="text-2xl font-bold text-slate-950">Side-by-Side Candidate Comparison</h2>
@@ -1423,7 +1500,7 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {/* Candidate Selection Chips */}
-                <div className="glass-panel rounded-3xl p-6 space-y-4">
+                <div className="bg-white rounded-3xl p-6 space-y-4 border border-slate-200/80 shadow-sm">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Screened Candidates for this role ({compareMatchingScreenings.length})
@@ -1434,7 +1511,7 @@ export default function ClaraAiPlatform() {
                   </div>
 
                   {compareMatchingScreenings.length === 0 ? (
-                    <div className="p-8 text-center bg-white/60 rounded-2xl border border-dashed border-slate-300">
+                    <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
                       <p className="text-xs text-slate-500">No candidates screened for this position yet.</p>
                       <button
                         onClick={() => { setSelectedJobId(compareJobId); setActiveTab("screen"); }}
@@ -1454,7 +1531,7 @@ export default function ClaraAiPlatform() {
                             className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                               isSelected
                                 ? "bg-blue-50/80 border-blue-500 shadow-sm ring-2 ring-blue-500/20"
-                                : "bg-white/80 border-slate-200 hover:border-slate-300"
+                                : "bg-white border-slate-200 hover:border-slate-300"
                             }`}
                           >
                             <div className="space-y-0.5">
@@ -1480,7 +1557,7 @@ export default function ClaraAiPlatform() {
 
                 {/* COMPARATIVE MATRIX TABLE */}
                 {comparedCandidates.length >= 2 ? (
-                  <div className="glass-panel-elevated rounded-3xl p-6 sm:p-8 space-y-6 border border-white shadow-xl">
+                  <div className="bg-white rounded-3xl p-6 sm:p-8 space-y-6 border border-slate-200/90 shadow-md">
                     <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                       <h3 className="text-base font-bold text-slate-950 flex items-center gap-2">
                         <span>⚖️</span> Comparative Evaluation Matrix
@@ -1536,7 +1613,7 @@ export default function ClaraAiPlatform() {
                           {/* Executive Fit Summary */}
                           <div className="space-y-2">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Executive Fit</span>
-                            <p className="text-xs text-slate-700 leading-relaxed bg-white/70 p-3.5 rounded-2xl border border-slate-100">
+                            <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
                               {cand.overallFit}
                             </p>
                           </div>
@@ -1573,7 +1650,7 @@ export default function ClaraAiPlatform() {
 
                   </div>
                 ) : (
-                  <div className="glass-panel p-8 text-center rounded-3xl space-y-2">
+                  <div className="bg-white p-8 text-center rounded-3xl space-y-2 border border-slate-200">
                     <p className="text-sm font-semibold text-slate-800">Please select at least 2 candidates above</p>
                     <p className="text-xs text-slate-500">The side-by-side comparative matrix will automatically render once 2 or 3 candidates are checked.</p>
                   </div>
@@ -1611,7 +1688,7 @@ export default function ClaraAiPlatform() {
                     </div>
 
                     {/* Screening Header Card */}
-                    <div className="glass-panel-elevated rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border border-white">
+                    <div className="bg-white rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border border-slate-200/90 shadow-sm">
                       <div className="space-y-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Evaluation Report</span>
                         <h2 className="text-2xl font-bold text-slate-950">{activeScreening.candidateName}</h2>
@@ -1632,12 +1709,12 @@ export default function ClaraAiPlatform() {
                     {/* Report Content Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                       <div className="md:col-span-7 space-y-6">
-                        <div className="glass-panel rounded-3xl p-6 space-y-3">
+                        <div className="bg-white rounded-3xl p-6 space-y-3 border border-slate-200/80 shadow-sm">
                           <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Overall Fit</h3>
                           <p className="text-xs text-slate-700 leading-relaxed font-normal">{activeScreening.overallFit}</p>
                         </div>
 
-                        <div className="glass-panel rounded-3xl p-6 space-y-3">
+                        <div className="bg-white rounded-3xl p-6 space-y-3 border border-slate-200/80 shadow-sm">
                           <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Strong Matches (✓)</h3>
                           {activeScreening.strongMatches && activeScreening.strongMatches.length > 0 ? (
                             <ul className="space-y-3">
@@ -1655,7 +1732,7 @@ export default function ClaraAiPlatform() {
                       </div>
 
                       <div className="md:col-span-5 space-y-6">
-                        <div className="glass-panel rounded-3xl p-6 space-y-3">
+                        <div className="bg-white rounded-3xl p-6 space-y-3 border border-slate-200/80 shadow-sm">
                           <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Candidate Profile</h3>
                           <div className="text-xs space-y-2">
                             <div className="flex justify-between py-1 border-b border-slate-50">
@@ -1677,7 +1754,7 @@ export default function ClaraAiPlatform() {
                           </div>
                         </div>
 
-                        <div className="glass-panel rounded-3xl p-6 space-y-3">
+                        <div className="bg-white rounded-3xl p-6 space-y-3 border border-slate-200/80 shadow-sm">
                           <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Gaps & Interview Questions</h3>
                           {activeScreening.gapsAndQuestions && activeScreening.gapsAndQuestions.length > 0 ? (
                             <div className="space-y-4 divide-y divide-slate-100">
@@ -1719,20 +1796,20 @@ export default function ClaraAiPlatform() {
                     </div>
 
                     {/* Filter controls */}
-                    <div className="glass-panel rounded-3xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="bg-white rounded-3xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between border border-slate-200/80 shadow-sm">
                       <input
                         type="text"
                         placeholder="Search candidate or job role..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full md:w-72 px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                        className="w-full md:w-72 px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
                       />
 
                       <div className="flex flex-wrap items-center gap-3">
                         <select 
                           value={filterJobId}
                           onChange={(e) => setFilterJobId(e.target.value)}
-                          className="py-2.5 px-3 bg-white/80 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
+                          className="py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
                         >
                           <option value="all">All openings</option>
                           {jobOpeningsList.map(job => (
@@ -1743,7 +1820,7 @@ export default function ClaraAiPlatform() {
                         <select 
                           value={filterFit}
                           onChange={(e) => setFilterFit(e.target.value)}
-                          className="py-2.5 px-3 bg-white/80 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
+                          className="py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
                         >
                           <option value="all">All match tiers</option>
                           <option value="strong">Strong match (&gt;= 85)</option>
@@ -1755,10 +1832,10 @@ export default function ClaraAiPlatform() {
                     </div>
 
                     {/* Table View */}
-                    <div className="glass-panel rounded-3xl overflow-hidden shadow-sm">
+                    <div className="bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-slate-100/60 text-slate-500 border-b border-slate-200 uppercase tracking-wider text-[9px] font-bold">
+                          <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider text-[9px] font-bold">
                             <th className="px-6 py-3.5">Candidate</th>
                             <th className="px-6 py-3.5">Applied Position</th>
                             <th className="px-6 py-3.5">Match Score</th>
@@ -1778,7 +1855,7 @@ export default function ClaraAiPlatform() {
                               <tr 
                                 key={s.id} 
                                 onClick={() => setSelectedScreeningId(s.id)}
-                                className="hover:bg-white/90 cursor-pointer transition-colors group"
+                                className="hover:bg-slate-50/80 cursor-pointer transition-colors group"
                               >
                                 <td className="px-6 py-4">
                                   <div className="flex flex-col">
@@ -1844,7 +1921,7 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {/* Stepper Header */}
-                <div className="glass-panel p-4 rounded-3xl flex items-center justify-between text-xs font-semibold">
+                <div className="bg-white p-4 rounded-3xl flex items-center justify-between text-xs font-semibold border border-slate-200/80 shadow-sm">
                   <span className={`px-3 py-1 rounded-xl ${formStep === "form" ? "bg-blue-600 text-white" : "text-slate-600"}`}>1. Input Details</span>
                   <span>→</span>
                   <span className={`px-3 py-1 rounded-xl ${formStep === "review" ? "bg-blue-600 text-white" : "text-slate-600"}`}>2. Verify & Review</span>
@@ -1853,7 +1930,7 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {formStep === "form" && (
-                  <form onSubmit={handleReviewStep} className="glass-panel-elevated p-6 sm:p-8 rounded-3xl space-y-5 border border-white">
+                  <form onSubmit={handleReviewStep} className="bg-white p-6 sm:p-8 rounded-3xl space-y-5 border border-slate-200/90 shadow-sm">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1987,7 +2064,7 @@ export default function ClaraAiPlatform() {
                         Upload Candidate Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
                       </label>
                       <div className={`p-6 rounded-2xl border-2 border-dashed transition-colors text-center relative cursor-pointer ${
-                        formErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50/70 hover:bg-slate-100"
+                        formErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
                       }`}>
                         <input
                           type="file"
@@ -2018,7 +2095,7 @@ export default function ClaraAiPlatform() {
                 )}
 
                 {formStep === "review" && (
-                  <div className="glass-panel-elevated p-6 sm:p-8 rounded-3xl space-y-6 border border-white">
+                  <div className="bg-white p-6 sm:p-8 rounded-3xl space-y-6 border border-slate-200/90 shadow-sm">
                     <h3 className="text-base font-bold text-slate-950">Review Candidate Details</h3>
 
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-2">
@@ -2058,7 +2135,7 @@ export default function ClaraAiPlatform() {
                 )}
 
                 {formStep === "screening" && (
-                  <div className="glass-panel p-12 text-center rounded-3xl space-y-4 animate-scaleIn">
+                  <div className="bg-white p-12 text-center rounded-3xl space-y-4 border border-slate-200/90 shadow-sm animate-scaleIn">
                     <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                     <h3 className="text-base font-bold text-slate-900">Evaluating Candidate Experience</h3>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto">
@@ -2091,7 +2168,7 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {showAddJobForm && (
-                  <form onSubmit={handleAddJobOpening} className="glass-panel-elevated p-6 sm:p-8 rounded-3xl space-y-4 border border-white">
+                  <form onSubmit={handleAddJobOpening} className="bg-white p-6 sm:p-8 rounded-3xl space-y-4 border border-slate-200/90 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-950">Create New Job Position</h3>
                     
                     {jobApiError && (
@@ -2177,7 +2254,7 @@ export default function ClaraAiPlatform() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {jobOpeningsList.map((job) => (
-                    <div key={job.id} className="glass-panel glass-card-hover rounded-3xl p-6 space-y-4">
+                    <div key={job.id} className="bg-white rounded-3xl p-6 space-y-4 border border-slate-200/80 shadow-sm hover:shadow-md transition-all">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
                           {job.company}
@@ -2220,7 +2297,7 @@ export default function ClaraAiPlatform() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {getGlobalCandidates().map((cand, idx) => (
-                    <div key={idx} className="glass-panel glass-card-hover rounded-3xl p-6 space-y-4">
+                    <div key={idx} className="bg-white rounded-3xl p-6 space-y-4 border border-slate-200/80 shadow-sm hover:shadow-md transition-all">
                       <div className="flex items-center justify-between">
                         <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
                           {cand.name.charAt(0)}
@@ -2254,7 +2331,7 @@ export default function ClaraAiPlatform() {
                   <p className="text-xs text-slate-500">Manage LLM configurations, custom API keys, and system diagnostics.</p>
                 </div>
 
-                <div className="glass-panel-elevated p-6 sm:p-8 rounded-3xl space-y-6 border border-white">
+                <div className="bg-white p-6 sm:p-8 rounded-3xl space-y-6 border border-slate-200/90 shadow-sm">
                   <div className="space-y-2">
                     <h3 className="text-sm font-bold text-slate-950">Custom Personal API Key (Optional)</h3>
                     <p className="text-xs text-slate-600 leading-relaxed">
@@ -2271,7 +2348,7 @@ export default function ClaraAiPlatform() {
                       value={tempApiKey}
                       onChange={(e) => setTempApiKey(e.target.value)}
                       placeholder="Paste your personal API key here..."
-                      className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
                     />
                     <div className="flex items-center gap-3 pt-2">
                       <button
@@ -2309,7 +2386,7 @@ export default function ClaraAiPlatform() {
       </main>
 
       {/* APPLE-INSPIRED TRANSLUCENT FOOTER */}
-      <footer className="mt-16 border-t border-slate-200/60 glass-panel py-8 text-center text-xs text-slate-400">
+      <footer className="mt-16 border-t border-slate-200 bg-white/90 backdrop-blur-md py-8 text-center text-xs text-slate-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} Clara AI Platform. Precision Talent Intelligence.</p>
           <div className="flex items-center gap-4 text-slate-500 font-medium">
