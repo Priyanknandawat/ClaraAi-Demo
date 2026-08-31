@@ -607,7 +607,7 @@ export default function ClaraAiPlatform() {
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased">
       {/* Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-50 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="mx-auto max-w-5xl px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="cursor-pointer" onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               <span className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-black">C</span>
@@ -657,7 +657,7 @@ export default function ClaraAiPlatform() {
       </header>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8">
         
         {/* TAB 1: DASHBOARD VIEW */}
         {activeTab === "dashboard" && (
@@ -945,20 +945,40 @@ export default function ClaraAiPlatform() {
                         {activeScreening.resumeText.split(/\s+/).length} words extracted
                       </span>
                     </div>
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 max-h-72 overflow-y-auto">
-                      <pre className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-sans">
-                        {activeScreening.resumeText}
-                      </pre>
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-5 max-h-96 overflow-y-auto">
+                      <div className="flex flex-col gap-3">
+                        {activeScreening.resumeText
+                          .replace(/([A-Z]{2,}[A-Z\s&]+)/g, '\n§$1§\n')
+                          .split('\n')
+                          .map(line => line.trim())
+                          .filter(line => line.length > 0)
+                          .map((line, idx) => {
+                            if (line.startsWith('§') && line.endsWith('§')) {
+                              const heading = line.replace(/§/g, '').trim();
+                              return (
+                                <h4 key={idx} className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-1 pt-2">
+                                  {heading}
+                                </h4>
+                              );
+                            }
+                            return (
+                              <p key={idx} className="text-xs text-slate-600 leading-relaxed">
+                                {line}
+                              </p>
+                            );
+                          })
+                        }
+                      </div>
                     </div>
                     <p className="text-[9px] text-slate-400 italic">
-                      This is the raw text extracted from the uploaded .docx resume file that was used for the AI evaluation.
+                      This is the text extracted from the uploaded .docx resume that was analyzed by the AI.
                     </p>
                   </div>
                 )}
 
                 {!activeScreening.resumeText && (
                   <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
-                    <p className="text-xs text-slate-400 italic">Resume text not available for this screening. Resume storage was added in a recent update — new screenings will include the parsed resume content.</p>
+                    <p className="text-xs text-slate-400 italic">Resume text not available for this screening. New screenings will include the parsed resume content.</p>
                   </div>
                 )}
 
