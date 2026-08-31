@@ -9,7 +9,7 @@ async function callGrokAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  const modelName = "grok-beta"; // or grok-2
+  const modelName = "grok-2";
   const url = "https://api.x.ai/v1/chat/completions";
 
   const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
