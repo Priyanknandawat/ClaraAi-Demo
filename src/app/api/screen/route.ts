@@ -2,7 +2,96 @@ import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { jobOpenings } from "@/data/jobs";
 
-// Abstraction for LLM calling
+// Abstraction for Gemini API calling
+async function callGeminiAPI(
+  apiKey: string,
+  resumeText: string,
+  jobDescription: string,
+  candidateDetails: any
+): Promise<any> {
+  const modelName = "gemini-1.5-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+  const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
+Your job is to compare the candidate's resume against the job description requirements and provide an objective, evidence-based evaluation.
+
+RULES:
+1. Evaluate ONLY based on the provided resume and job description. Do not invent any credentials, experience, or qualifications.
+2. Distinguish explicit evidence from assumptions. Identify uncertainty where information is missing or unclear.
+3. Never treat missing information as proof that the candidate lacks a skill. Simply identify it as a gap or area of uncertainty.
+4. STRICT COMPLIANCE: Do NOT use protected or sensitive personal characteristics (such as Age, Gender, Race, Religion, Disability, Marital Status) for candidate scoring or evaluation. These details might be provided in the candidate info, but they must NOT influence the match score or candidate fit summary in any way.
+5. Avoid overly enthusiastic or marketing-like language. Be objective, calm, professional, and recruiter-focused.
+6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
+7. Return a structured JSON response matching the required schema.`;
+
+  const userPrompt = `Candidate Name: ${candidateDetails.name}
+Candidate Location: ${candidateDetails.currentLocation}
+Candidate Email: ${candidateDetails.email}
+
+Job Description:
+${jobDescription}
+
+Candidate Resume Text:
+${resumeText}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: `${systemPrompt}\n\n---\n\n${userPrompt}` }
+          ]
+        }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            match_score: { type: "INTEGER" },
+            overall_fit: { type: "STRING" },
+            strong_matches: {
+              type: "ARRAY",
+              items: { type: "STRING" }
+            },
+            gaps_and_questions: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  gap: { type: "STRING" },
+                  question: { type: "STRING" }
+                },
+                required: ["gap", "question"]
+              }
+            }
+          },
+          required: ["match_score", "overall_fit", "strong_matches", "gaps_and_questions"]
+        }
+      }
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawContent) {
+    throw new Error("Empty response from Gemini API");
+  }
+
+  return JSON.parse(rawContent);
+}
+
+// Abstraction for Grok API calling
 async function callGrokAPI(
   apiKey: string,
   resumeText: string,
@@ -248,12 +337,22 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
     }
 
     try {
-      const evaluation = await callGrokAPI(apiKey, resumeText, jobDescriptionFull, {
-        name,
-        email,
-        currentLocation,
-        age,
-      });
+      let evaluation;
+      if (apiKey.startsWith("xai-")) {
+        evaluation = await callGrokAPI(apiKey, resumeText, jobDescriptionFull, {
+          name,
+          email,
+          currentLocation,
+          age,
+        });
+      } else {
+        evaluation = await callGeminiAPI(apiKey, resumeText, jobDescriptionFull, {
+          name,
+          email,
+          currentLocation,
+          age,
+        });
+      }
 
       // Basic validation of structured output
       if (
@@ -262,12 +361,12 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
         !Array.isArray(evaluation.strong_matches) ||
         !Array.isArray(evaluation.gaps_and_questions)
       ) {
-        throw new Error("Invalid response format from Grok API");
+        throw new Error("Invalid response format from LLM API");
       }
 
       return NextResponse.json(evaluation);
     } catch (llmError: any) {
-      console.error("Grok API screening failed:", llmError);
+      console.error("LLM API screening failed:", llmError);
       
       // Graceful fallback to mock result with error information
       const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
