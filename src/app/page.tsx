@@ -33,6 +33,16 @@ interface CandidateForm {
   currentLocation: string;
 }
 
+interface FormValidationErrors {
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  age?: string;
+  jobId?: string;
+  file?: string;
+}
+
 interface JobForm {
   title: string;
   company: string;
@@ -40,6 +50,13 @@ interface JobForm {
   responsibilitiesText: string;
   experienceText: string;
   skillsText: string;
+}
+
+interface JobFormErrors {
+  title?: string;
+  company?: string;
+  description?: string;
+  responsibilities?: string;
 }
 
 const initialForm: CandidateForm = {
@@ -158,13 +175,14 @@ export default function ClaraAiPlatform() {
   const [form, setForm] = useState<CandidateForm>(initialForm);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [formErrors, setFormErrors] = useState<FormValidationErrors>({});
 
   // Job Opening Form workflow
   const [jobForm, setJobForm] = useState<JobForm>(initialJobForm);
   const [showAddJobForm, setShowAddJobForm] = useState<boolean>(false);
+  const [jobFormErrors, setJobFormErrors] = useState<JobFormErrors>({});
   const [jobApiError, setJobApiError] = useState<string | null>(null);
   const [isJobLoading, setIsJobLoading] = useState<boolean>(false);
 
@@ -172,6 +190,7 @@ export default function ClaraAiPlatform() {
   const [candidatePortalJob, setCandidatePortalJob] = useState<JobOpening | null>(null);
   const [candidateForm, setCandidateForm] = useState<CandidateForm>(initialForm);
   const [candidateResumeFile, setCandidateResumeFile] = useState<File | null>(null);
+  const [candidateFormErrors, setCandidateFormErrors] = useState<FormValidationErrors>({});
   const [candidateApplying, setCandidateApplying] = useState<boolean>(false);
   const [candidateAppliedSuccess, setCandidateAppliedSuccess] = useState<boolean>(false);
   const [candidateCategoryFilter, setCandidateCategoryFilter] = useState<string>("all");
@@ -180,14 +199,6 @@ export default function ClaraAiPlatform() {
   const [tempApiKey, setTempApiKey] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const candidateFileInputRef = useRef<HTMLInputElement>(null);
-
-  const [formErrors, setFormErrors] = useState<{
-    name?: string;
-    email?: string;
-    phone?: string;
-    location?: string;
-    age?: string;
-  }>({});
 
   // Search & Filter states for Screenings table
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -287,43 +298,110 @@ export default function ClaraAiPlatform() {
     }
   };
 
-  const validateCandidateForm = (formData: CandidateForm) => {
-    const errors: typeof formErrors = {};
-    if (!formData.name.trim()) errors.name = "Candidate name is required.";
-    if (!formData.email.trim()) errors.email = "Email address is required.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = "Invalid email format.";
-    if (!formData.phone.trim()) errors.phone = "Phone number is required.";
-    if (!formData.currentLocation.trim()) errors.location = "Current location is required.";
-    if (!formData.age.trim()) errors.age = "Age is required.";
-    else if (isNaN(Number(formData.age)) || Number(formData.age) < 18 || Number(formData.age) > 99) errors.age = "Age must be between 18 and 99.";
+  // STRICT VALIDATION HELPERS
+  const validateCandidateData = (data: CandidateForm, file: File | null, jobId?: string): FormValidationErrors => {
+    const errors: FormValidationErrors = {};
+
+    // Name: At least 2 characters, only letters, spaces, dots, hyphens
+    if (!data.name.trim()) {
+      errors.name = "Candidate name is required.";
+    } else if (data.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters long.";
+    } else if (!/^[a-zA-Z\s.'-]+$/.test(data.name.trim())) {
+      errors.name = "Name must only contain letters, spaces, dots, or hyphens.";
+    }
+
+    // Email: Strict RFC format check
+    if (!data.email.trim()) {
+      errors.email = "Email address is required.";
+    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(data.email.trim())) {
+      errors.email = "Please enter a valid email address (e.g. name@domain.com).";
+    }
+
+    // Phone: Digits, +, -, spaces, parentheses, min 8 digits
+    const cleanedPhone = data.phone.replace(/[^0-9]/g, "");
+    if (!data.phone.trim()) {
+      errors.phone = "Phone number is required.";
+    } else if (cleanedPhone.length < 8 || cleanedPhone.length > 15) {
+      errors.phone = "Phone number must contain between 8 and 15 digits.";
+    } else if (!/^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{7,15}$/.test(data.phone.trim())) {
+      errors.phone = "Please enter a valid phone number (e.g. +91 93588 80813).";
+    }
+
+    // Current Location: Min 2 characters
+    if (!data.currentLocation.trim()) {
+      errors.location = "Current location is required.";
+    } else if (data.currentLocation.trim().length < 2) {
+      errors.location = "Location must be at least 2 characters.";
+    }
+
+    // Age: Integer between 18 and 99
+    if (!data.age.trim()) {
+      errors.age = "Age is required.";
+    } else {
+      const parsedAge = Number(data.age);
+      if (isNaN(parsedAge) || !Number.isInteger(parsedAge) || parsedAge < 18 || parsedAge > 99) {
+        errors.age = "Candidate age must be an integer between 18 and 99.";
+      }
+    }
+
+    // Target Role check (if applicable)
+    if (jobId !== undefined && !jobId) {
+      errors.jobId = "Please select a target job opening.";
+    }
+
+    // File check
+    if (!file) {
+      errors.file = "Please upload a valid Microsoft Word (.docx) resume.";
+    }
+
     return errors;
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (formErrors[name as keyof typeof formErrors]) {
+    
+    // Auto-sanitization for phone and age
+    let sanitizedValue = value;
+    if (name === "phone") {
+      sanitizedValue = value.replace(/[^0-9+\s\-()]/g, "");
+    } else if (name === "age") {
+      sanitizedValue = value.replace(/[^0-9]/g, "").slice(0, 2);
+    }
+
+    setForm((prev) => ({ ...prev, [name]: sanitizedValue }));
+    if (formErrors[name as keyof FormValidationErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
   const handleCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCandidateForm((prev) => ({ ...prev, [name]: value }));
+    let sanitizedValue = value;
+    if (name === "phone") {
+      sanitizedValue = value.replace(/[^0-9+\s\-()]/g, "");
+    } else if (name === "age") {
+      sanitizedValue = value.replace(/[^0-9]/g, "").slice(0, 2);
+    }
+
+    setCandidateForm((prev) => ({ ...prev, [name]: sanitizedValue }));
+    if (candidateFormErrors[name as keyof FormValidationErrors]) {
+      setCandidateFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFileError(null);
+    setFormErrors((prev) => ({ ...prev, file: undefined }));
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const extension = file.name.split(".").pop()?.toLowerCase();
       if (extension !== "docx") {
-        setFileError("Invalid file type. Please upload a Microsoft Word document (.docx).");
+        setFormErrors((prev) => ({ ...prev, file: "Invalid file type. Please upload a Microsoft Word document (.docx)." }));
         setResumeFile(null);
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        setFileError("File is too large. Maximum size is 5MB.");
+        setFormErrors((prev) => ({ ...prev, file: "File is too large. Maximum size is 5MB." }));
         setResumeFile(null);
         return;
       }
@@ -332,25 +410,29 @@ export default function ClaraAiPlatform() {
   };
 
   const handleCandidateFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCandidateFormErrors((prev) => ({ ...prev, file: undefined }));
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      if (extension !== "docx") {
+        setCandidateFormErrors((prev) => ({ ...prev, file: "Invalid file format. Only Microsoft Word (.docx) documents are accepted." }));
+        setCandidateResumeFile(null);
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setCandidateFormErrors((prev) => ({ ...prev, file: "File is too large. Maximum allowed size is 5MB." }));
+        setCandidateResumeFile(null);
+        return;
+      }
       setCandidateResumeFile(file);
     }
   };
 
   const handleReviewStep = (e: React.FormEvent) => {
     e.preventDefault();
-    const errors = validateCandidateForm(form);
+    const errors = validateCandidateData(form, resumeFile, selectedJobId);
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      return;
-    }
-    if (!selectedJobId) {
-      setFileError("Please select a target job opening.");
-      return;
-    }
-    if (!resumeFile) {
-      setFileError("Please upload a .docx resume.");
       return;
     }
     setFormStep("review");
@@ -365,12 +447,12 @@ export default function ClaraAiPlatform() {
 
     const formData = new FormData();
     formData.append("file", resumeFile);
-    formData.append("name", form.name);
-    formData.append("email", form.email);
-    formData.append("phone", form.phone);
-    formData.append("address", form.address);
-    formData.append("age", form.age);
-    formData.append("currentLocation", form.currentLocation);
+    formData.append("name", form.name.trim());
+    formData.append("email", form.email.trim());
+    formData.append("phone", form.phone.trim());
+    formData.append("address", form.address.trim());
+    formData.append("age", form.age.trim());
+    formData.append("currentLocation", form.currentLocation.trim());
     formData.append("jobOpeningId", selectedJobId);
 
     const headers: Record<string, string> = {};
@@ -395,12 +477,12 @@ export default function ClaraAiPlatform() {
       const currentJob = jobOpeningsList.find((j) => j.id === selectedJobId);
       const newScreening: SavedScreening = {
         id: data.id || `scr-${Date.now()}`,
-        candidateName: form.name,
-        candidateEmail: form.email,
-        candidatePhone: form.phone,
-        candidateAddress: form.address,
+        candidateName: form.name.trim(),
+        candidateEmail: form.email.trim(),
+        candidatePhone: form.phone.trim(),
+        candidateAddress: form.address.trim(),
         candidateAge: Number(form.age) || 25,
-        candidateLocation: form.currentLocation,
+        candidateLocation: form.currentLocation.trim(),
         jobId: selectedJobId,
         jobTitle: currentJob ? currentJob.title : "Target Role",
         jobCompany: currentJob ? currentJob.company : "Company",
@@ -429,19 +511,27 @@ export default function ClaraAiPlatform() {
 
   const handleCandidatePortalApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!candidatePortalJob || !candidateResumeFile) return;
+    if (!candidatePortalJob) return;
+
+    const errors = validateCandidateData(candidateForm, candidateResumeFile);
+    if (Object.keys(errors).length > 0) {
+      setCandidateFormErrors(errors);
+      return;
+    }
+
+    if (!candidateResumeFile) return;
 
     setCandidateApplying(true);
     setCandidateAppliedSuccess(false);
 
     const formData = new FormData();
     formData.append("file", candidateResumeFile);
-    formData.append("name", candidateForm.name);
-    formData.append("email", candidateForm.email);
-    formData.append("phone", candidateForm.phone);
-    formData.append("address", candidateForm.address || candidateForm.currentLocation);
-    formData.append("age", candidateForm.age || "25");
-    formData.append("currentLocation", candidateForm.currentLocation);
+    formData.append("name", candidateForm.name.trim());
+    formData.append("email", candidateForm.email.trim());
+    formData.append("phone", candidateForm.phone.trim());
+    formData.append("address", candidateForm.address.trim() || candidateForm.currentLocation.trim());
+    formData.append("age", candidateForm.age.trim());
+    formData.append("currentLocation", candidateForm.currentLocation.trim());
     formData.append("jobOpeningId", candidatePortalJob.id);
 
     try {
@@ -457,12 +547,12 @@ export default function ClaraAiPlatform() {
 
       const newScreening: SavedScreening = {
         id: data.id || `scr-${Date.now()}`,
-        candidateName: candidateForm.name,
-        candidateEmail: candidateForm.email,
-        candidatePhone: candidateForm.phone,
-        candidateAddress: candidateForm.address || candidateForm.currentLocation,
+        candidateName: candidateForm.name.trim(),
+        candidateEmail: candidateForm.email.trim(),
+        candidatePhone: candidateForm.phone.trim(),
+        candidateAddress: candidateForm.address.trim() || candidateForm.currentLocation.trim(),
         candidateAge: Number(candidateForm.age) || 25,
-        candidateLocation: candidateForm.currentLocation,
+        candidateLocation: candidateForm.currentLocation.trim(),
         jobId: candidatePortalJob.id,
         jobTitle: candidatePortalJob.title,
         jobCompany: candidatePortalJob.company,
@@ -490,7 +580,7 @@ export default function ClaraAiPlatform() {
     setForm(initialForm);
     setSelectedJobId("");
     setResumeFile(null);
-    setFileError(null);
+    setFormErrors({});
     setFormStep("form");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -541,13 +631,29 @@ export default function ClaraAiPlatform() {
     }
   };
 
-  // Add Job Opening Action
+  // Add Job Opening Action with strict validation
   const handleAddJobOpening = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!jobForm.title.trim() || !jobForm.company.trim() || !jobForm.description.trim()) return;
+    const errors: JobFormErrors = {};
+
+    if (!jobForm.title.trim() || jobForm.title.trim().length < 3) {
+      errors.title = "Position title must be at least 3 characters long.";
+    }
+    if (!jobForm.company.trim() || jobForm.company.trim().length < 2) {
+      errors.company = "Company name must be at least 2 characters long.";
+    }
+    if (!jobForm.description.trim() || jobForm.description.trim().length < 15) {
+      errors.description = "Role description must be at least 15 characters long.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setJobFormErrors(errors);
+      return;
+    }
 
     setIsJobLoading(true);
     setJobApiError(null);
+    setJobFormErrors({});
 
     const formatList = (text: string) => text.split("\n").map(l => l.trim()).filter(l => l !== "");
     const responsibilities = formatList(jobForm.responsibilitiesText);
@@ -560,9 +666,9 @@ export default function ClaraAiPlatform() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: jobForm.title,
-          company: jobForm.company,
-          description: jobForm.description,
+          title: jobForm.title.trim(),
+          company: jobForm.company.trim(),
+          description: jobForm.description.trim(),
           responsibilities,
           skills,
           experience,
@@ -694,11 +800,11 @@ export default function ClaraAiPlatform() {
   };
 
   return (
-    <div className="min-h-screen text-slate-900 font-sans antialiased selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen text-slate-900 font-sans antialiased selection:bg-blue-500 selection:text-white flex flex-col justify-between">
       
       {/* APPLE-INSPIRED TRANSLUCENT NAVIGATION BAR */}
       <header className="sticky top-0 z-50 glass-panel border-b border-white/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           
           {/* Logo & Brand Identity */}
           <div className="flex items-center justify-between">
@@ -770,44 +876,44 @@ export default function ClaraAiPlatform() {
             <nav className="flex items-center flex-wrap gap-1 sm:gap-2 text-xs font-semibold text-slate-600">
               <button 
                 onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === "dashboard" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-xl transition-all ${activeTab === "dashboard" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
               >
                 Dashboard
               </button>
               <button 
                 onClick={() => { setActiveTab("screenings"); setSelectedScreeningId(null); }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === "screenings" && !selectedScreeningId ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-xl transition-all ${activeTab === "screenings" && !selectedScreeningId ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
               >
                 Screenings
               </button>
               <button 
                 onClick={() => { setActiveTab("compare"); setSelectedScreeningId(null); }}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${activeTab === "compare" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "text-blue-700 bg-blue-50 hover:bg-blue-100"}`}
+                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === "compare" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "text-blue-700 bg-blue-50 hover:bg-blue-100"}`}
               >
                 <span>⚖️</span> Compare
               </button>
               <button 
                 onClick={() => { setActiveTab("screen"); resetFormWorkflow(); }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === "screen" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-xl transition-all ${activeTab === "screen" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
               >
                 + New Screening
               </button>
               <button 
                 onClick={() => { setActiveTab("jobs"); setSelectedScreeningId(null); }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === "jobs" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-xl transition-all ${activeTab === "jobs" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
               >
                 Openings
               </button>
               <button 
                 onClick={() => { setActiveTab("settings"); setSelectedScreeningId(null); }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === "settings" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
+                className={`px-3 py-1.5 rounded-xl transition-all ${activeTab === "settings" ? "bg-white text-blue-600 shadow-sm" : "hover:text-slate-900"}`}
               >
                 Settings
               </button>
             </nav>
           ) : (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 font-medium">{jobOpeningsList.length} Open Opportunities</span>
+              <span className="text-xs text-slate-500 font-medium">{jobOpeningsList.length} Active Openings</span>
               <button
                 onClick={() => { setPortalMode("recruiter"); setActiveTab("dashboard"); }}
                 className="text-xs font-semibold px-3.5 py-1.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all shadow-sm"
@@ -821,7 +927,7 @@ export default function ClaraAiPlatform() {
       </header>
 
       {/* MAIN CONTENT AREA */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex-1 w-full">
 
         {/* ========================================================================= */}
         {/* PORTAL MODE 1: CANDIDATE CAREER PORTAL (PUBLIC FACING)                    */}
@@ -830,7 +936,7 @@ export default function ClaraAiPlatform() {
           <div className="animate-fadeIn space-y-12">
             
             {/* Apple-style Hero Section */}
-            <div className="relative text-center max-w-3xl mx-auto pt-6 pb-10">
+            <div className="relative text-center max-w-3xl mx-auto pt-4 pb-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm mb-6 animate-scaleIn">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 We are actively hiring visionary talent
@@ -840,7 +946,7 @@ export default function ClaraAiPlatform() {
                 <span className="apple-gradient-text">High-Impact Business</span>
               </h2>
               <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-                Join our forward-thinking teams. Blend commercial rigor with ancient wisdom, solve complex challenges, and unleash your leadership potential.
+                Join our forward-thinking teams. Blend commercial acumen with ancient Indian ethos, solve complex challenges, and unleash your leadership potential.
               </p>
 
               {/* Category Filters */}
@@ -904,6 +1010,7 @@ export default function ClaraAiPlatform() {
                       onClick={() => {
                         setCandidatePortalJob(job);
                         setCandidateAppliedSuccess(false);
+                        setCandidateFormErrors({});
                       }}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-600/20"
                     >
@@ -914,10 +1021,10 @@ export default function ClaraAiPlatform() {
               ))}
             </div>
 
-            {/* Candidate Role & Application Modal */}
+            {/* CANDIDATE ROLE & APPLICATION MODAL (OVERLAY ABOVE NAVBAR) */}
             {candidatePortalJob && (
-              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 overflow-y-auto">
-                <div className="glass-panel-elevated w-full max-w-3xl rounded-3xl p-6 sm:p-10 my-8 shadow-2xl animate-scaleIn border border-white max-h-[90vh] overflow-y-auto">
+              <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn">
+                <div className="glass-panel-elevated w-full max-w-3xl rounded-3xl p-6 sm:p-10 my-auto shadow-2xl animate-scaleIn border border-white/90 max-h-[88vh] overflow-y-auto">
                   
                   <div className="flex items-center justify-between border-b border-slate-100 pb-5">
                     <div>
@@ -927,6 +1034,7 @@ export default function ClaraAiPlatform() {
                     <button 
                       onClick={() => setCandidatePortalJob(null)}
                       className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition-colors"
+                      aria-label="Close dialog"
                     >
                       ✕
                     </button>
@@ -973,7 +1081,10 @@ export default function ClaraAiPlatform() {
 
                       {/* Application Form */}
                       <form onSubmit={handleCandidatePortalApply} className="pt-6 border-t border-slate-200 space-y-4">
-                        <h3 className="text-sm font-bold text-slate-950">Quick Application Form</h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-slate-950">Quick Application Form</h3>
+                          <span className="text-[10px] text-slate-400 font-medium">* Required fields</span>
+                        </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
@@ -983,12 +1094,16 @@ export default function ClaraAiPlatform() {
                             <input
                               type="text"
                               name="name"
-                              required
                               value={candidateForm.name}
                               onChange={handleCandidateFormChange}
                               placeholder="e.g. Priyank Nandawat"
-                              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
+                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                candidateFormErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                              }`}
                             />
+                            {candidateFormErrors.name && (
+                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.name}</p>
+                            )}
                           </div>
 
                           <div>
@@ -998,27 +1113,35 @@ export default function ClaraAiPlatform() {
                             <input
                               type="email"
                               name="email"
-                              required
                               value={candidateForm.email}
                               onChange={handleCandidateFormChange}
                               placeholder="priyank@example.com"
-                              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
+                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                candidateFormErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                              }`}
                             />
+                            {candidateFormErrors.email && (
+                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.email}</p>
+                            )}
                           </div>
 
                           <div>
                             <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Phone Number <span className="text-rose-500 font-bold">*</span>
+                              Phone Number (Digits only) <span className="text-rose-500 font-bold">*</span>
                             </label>
                             <input
                               type="tel"
                               name="phone"
-                              required
                               value={candidateForm.phone}
                               onChange={handleCandidateFormChange}
                               placeholder="+91 93588 80813"
-                              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
+                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                candidateFormErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                              }`}
                             />
+                            {candidateFormErrors.phone && (
+                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.phone}</p>
+                            )}
                           </div>
 
                           <div>
@@ -1028,11 +1151,50 @@ export default function ClaraAiPlatform() {
                             <input
                               type="text"
                               name="currentLocation"
-                              required
                               value={candidateForm.currentLocation}
                               onChange={handleCandidateFormChange}
                               placeholder="e.g. Udaipur / Bengaluru"
-                              className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
+                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                candidateFormErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                              }`}
+                            />
+                            {candidateFormErrors.location && (
+                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.location}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                              Age (18–99) <span className="text-rose-500 font-bold">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="18"
+                              max="99"
+                              name="age"
+                              value={candidateForm.age}
+                              onChange={handleCandidateFormChange}
+                              placeholder="e.g. 24"
+                              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                                candidateFormErrors.age ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                              }`}
+                            />
+                            {candidateFormErrors.age && (
+                              <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.age}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                              Residential Address
+                            </label>
+                            <input
+                              type="text"
+                              name="address"
+                              value={candidateForm.address}
+                              onChange={handleCandidateFormChange}
+                              placeholder="Optional address details"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
                             />
                           </div>
                         </div>
@@ -1042,11 +1204,12 @@ export default function ClaraAiPlatform() {
                           <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                             Upload Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
                           </label>
-                          <div className="p-4 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors text-center cursor-pointer relative">
+                          <div className={`p-5 rounded-2xl border-2 border-dashed transition-colors text-center cursor-pointer relative ${
+                            candidateFormErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+                          }`}>
                             <input
                               type="file"
                               accept=".docx"
-                              required
                               ref={candidateFileInputRef}
                               onChange={handleCandidateFileChange}
                               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -1058,6 +1221,9 @@ export default function ClaraAiPlatform() {
                               <p className="text-[10px] text-slate-500">Microsoft Word (.docx) format up to 5MB</p>
                             </div>
                           </div>
+                          {candidateFormErrors.file && (
+                            <p className="text-[10px] text-rose-500 font-medium mt-1.5">{candidateFormErrors.file}</p>
+                          )}
                         </div>
 
                         <div className="pt-4 flex items-center justify-end gap-3">
@@ -1070,7 +1236,7 @@ export default function ClaraAiPlatform() {
                           </button>
                           <button
                             type="submit"
-                            disabled={candidateApplying || !candidateResumeFile}
+                            disabled={candidateApplying}
                             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
                           >
                             {candidateApplying ? "Analyzing & Submitting..." : "Submit Application →"}
@@ -1096,7 +1262,7 @@ export default function ClaraAiPlatform() {
             {/* TAB: LANDING / WELCOME VIEW */}
             {activeTab === "landing" && (
               <div className="animate-fadeIn space-y-12">
-                <div className="relative text-center max-w-3xl mx-auto pt-6 pb-6">
+                <div className="relative text-center max-w-3xl mx-auto pt-4 pb-6">
                   <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-100 mb-4">
                     Clara AI Enterprise 2.0
                   </span>
@@ -1245,7 +1411,7 @@ export default function ClaraAiPlatform() {
                     <select
                       value={compareJobId}
                       onChange={(e) => setCompareJobId(e.target.value)}
-                      className="px-3.5 py-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 shadow-sm"
+                      className="px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 shadow-sm"
                     >
                       {jobOpeningsList.map((job) => (
                         <option key={job.id} value={job.id}>
@@ -1559,14 +1725,14 @@ export default function ClaraAiPlatform() {
                         placeholder="Search candidate or job role..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full md:w-72 px-3.5 py-2 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                        className="w-full md:w-72 px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
                       />
 
                       <div className="flex flex-wrap items-center gap-3">
                         <select 
                           value={filterJobId}
                           onChange={(e) => setFilterJobId(e.target.value)}
-                          className="py-2 px-3 bg-white/80 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
+                          className="py-2.5 px-3 bg-white/80 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
                         >
                           <option value="all">All openings</option>
                           {jobOpeningsList.map(job => (
@@ -1577,7 +1743,7 @@ export default function ClaraAiPlatform() {
                         <select 
                           value={filterFit}
                           onChange={(e) => setFilterFit(e.target.value)}
-                          className="py-2 px-3 bg-white/80 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
+                          className="py-2.5 px-3 bg-white/80 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
                         >
                           <option value="all">All match tiers</option>
                           <option value="strong">Strong match (&gt;= 85)</option>
@@ -1699,9 +1865,11 @@ export default function ClaraAiPlatform() {
                           value={form.name}
                           onChange={handleFormChange}
                           placeholder="e.g. Priyank Nandawat"
-                          className="w-full px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                            formErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
-                        {formErrors.name && <p className="text-[10px] text-rose-500 mt-1">{formErrors.name}</p>}
+                        {formErrors.name && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.name}</p>}
                       </div>
 
                       <div>
@@ -1714,14 +1882,16 @@ export default function ClaraAiPlatform() {
                           value={form.email}
                           onChange={handleFormChange}
                           placeholder="priyank@example.com"
-                          className="w-full px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                            formErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
-                        {formErrors.email && <p className="text-[10px] text-rose-500 mt-1">{formErrors.email}</p>}
+                        {formErrors.email && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.email}</p>}
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Phone Number <span className="text-rose-500 font-bold">*</span>
+                          Phone Number (Digits only) <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <input
                           type="tel"
@@ -1729,9 +1899,11 @@ export default function ClaraAiPlatform() {
                           value={form.phone}
                           onChange={handleFormChange}
                           placeholder="+91 93588 80813"
-                          className="w-full px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                            formErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
-                        {formErrors.phone && <p className="text-[10px] text-rose-500 mt-1">{formErrors.phone}</p>}
+                        {formErrors.phone && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.phone}</p>}
                       </div>
 
                       <div>
@@ -1744,9 +1916,11 @@ export default function ClaraAiPlatform() {
                           value={form.currentLocation}
                           onChange={handleFormChange}
                           placeholder="e.g. Udaipur, Rajasthan"
-                          className="w-full px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                            formErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
-                        {formErrors.location && <p className="text-[10px] text-rose-500 mt-1">{formErrors.location}</p>}
+                        {formErrors.location && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.location}</p>}
                       </div>
 
                       <div className="sm:col-span-2">
@@ -1755,8 +1929,13 @@ export default function ClaraAiPlatform() {
                         </label>
                         <select
                           value={selectedJobId}
-                          onChange={(e) => setSelectedJobId(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          onChange={(e) => {
+                            setSelectedJobId(e.target.value);
+                            if (formErrors.jobId) setFormErrors((prev) => ({ ...prev, jobId: undefined }));
+                          }}
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                            formErrors.jobId ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         >
                           <option value="">Select a target role...</option>
                           {jobOpeningsList.map((job) => (
@@ -1765,21 +1944,26 @@ export default function ClaraAiPlatform() {
                             </option>
                           ))}
                         </select>
+                        {formErrors.jobId && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.jobId}</p>}
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Candidate Age <span className="text-rose-500 font-bold">*</span>
+                          Candidate Age (18–99) <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <input
                           type="number"
+                          min="18"
+                          max="99"
                           name="age"
                           value={form.age}
                           onChange={handleFormChange}
                           placeholder="e.g. 25"
-                          className="w-full px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                            formErrors.age ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
-                        {formErrors.age && <p className="text-[10px] text-rose-500 mt-1">{formErrors.age}</p>}
+                        {formErrors.age && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.age}</p>}
                       </div>
 
                       <div>
@@ -1792,7 +1976,7 @@ export default function ClaraAiPlatform() {
                           value={form.address}
                           onChange={handleFormChange}
                           placeholder="Optional residential address"
-                          className="w-full px-3.5 py-2.5 bg-white/80 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
                         />
                       </div>
                     </div>
@@ -1802,7 +1986,9 @@ export default function ClaraAiPlatform() {
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Upload Candidate Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
                       </label>
-                      <div className="p-6 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/70 hover:bg-slate-100 transition-colors text-center relative cursor-pointer">
+                      <div className={`p-6 rounded-2xl border-2 border-dashed transition-colors text-center relative cursor-pointer ${
+                        formErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50/70 hover:bg-slate-100"
+                      }`}>
                         <input
                           type="file"
                           accept=".docx"
@@ -1817,7 +2003,7 @@ export default function ClaraAiPlatform() {
                           <p className="text-[10px] text-slate-500">Microsoft Word document (.docx) up to 5MB</p>
                         </div>
                       </div>
-                      {fileError && <p className="text-xs text-rose-500 mt-1.5">{fileError}</p>}
+                      {formErrors.file && <p className="text-xs text-rose-500 font-medium mt-1.5">{formErrors.file}</p>}
                     </div>
 
                     <div className="pt-3 flex justify-end">
@@ -1894,7 +2080,10 @@ export default function ClaraAiPlatform() {
                   </div>
 
                   <button
-                    onClick={() => setShowAddJobForm(!showAddJobForm)}
+                    onClick={() => {
+                      setShowAddJobForm(!showAddJobForm);
+                      setJobFormErrors({});
+                    }}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-500/20 transition-all"
                   >
                     {showAddJobForm ? "✕ Cancel" : "+ Create New Opening"}
@@ -1904,41 +2093,63 @@ export default function ClaraAiPlatform() {
                 {showAddJobForm && (
                   <form onSubmit={handleAddJobOpening} className="glass-panel-elevated p-6 sm:p-8 rounded-3xl space-y-4 border border-white">
                     <h3 className="text-sm font-bold text-slate-950">Create New Job Position</h3>
+                    
+                    {jobApiError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs">
+                        ⚠️ {jobApiError}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Position Title *</label>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Position Title <span className="text-rose-500 font-bold">*</span></label>
                         <input
                           type="text"
-                          required
                           value={jobForm.title}
-                          onChange={(e) => setJobForm({...jobForm, title: e.target.value})}
+                          onChange={(e) => {
+                            setJobForm({...jobForm, title: e.target.value});
+                            if (jobFormErrors.title) setJobFormErrors({...jobFormErrors, title: undefined});
+                          }}
                           placeholder="e.g. Chief of Staff / Product Manager"
-                          className="w-full px-3.5 py-2 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 bg-white rounded-xl border text-xs outline-none transition-all ${
+                            jobFormErrors.title ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
+                        {jobFormErrors.title && <p className="text-[10px] text-rose-500 font-medium mt-1">{jobFormErrors.title}</p>}
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">Company Name *</label>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Company Name <span className="text-rose-500 font-bold">*</span></label>
                         <input
                           type="text"
-                          required
                           value={jobForm.company}
-                          onChange={(e) => setJobForm({...jobForm, company: e.target.value})}
+                          onChange={(e) => {
+                            setJobForm({...jobForm, company: e.target.value});
+                            if (jobFormErrors.company) setJobFormErrors({...jobFormErrors, company: undefined});
+                          }}
                           placeholder="e.g. Satva Partners"
-                          className="w-full px-3.5 py-2 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                          className={`w-full px-3.5 py-2.5 bg-white rounded-xl border text-xs outline-none transition-all ${
+                            jobFormErrors.company ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                          }`}
                         />
+                        {jobFormErrors.company && <p className="text-[10px] text-rose-500 font-medium mt-1">{jobFormErrors.company}</p>}
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Role Description *</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Role Description <span className="text-rose-500 font-bold">*</span></label>
                       <textarea
-                        required
                         rows={3}
                         value={jobForm.description}
-                        onChange={(e) => setJobForm({...jobForm, description: e.target.value})}
+                        onChange={(e) => {
+                          setJobForm({...jobForm, description: e.target.value});
+                          if (jobFormErrors.description) setJobFormErrors({...jobFormErrors, description: undefined});
+                        }}
                         placeholder="Detailed role description and mission context..."
-                        className="w-full px-3.5 py-2 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                        className={`w-full px-3.5 py-2.5 bg-white rounded-xl border text-xs outline-none transition-all ${
+                          jobFormErrors.description ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                        }`}
                       />
+                      {jobFormErrors.description && <p className="text-[10px] text-rose-500 font-medium mt-1">{jobFormErrors.description}</p>}
                     </div>
 
                     <div>
@@ -1947,8 +2158,8 @@ export default function ClaraAiPlatform() {
                         rows={3}
                         value={jobForm.responsibilitiesText}
                         onChange={(e) => setJobForm({...jobForm, responsibilitiesText: e.target.value})}
-                        placeholder="Support data analysis&#10;Executive PowerPoint presentations"
-                        className="w-full px-3.5 py-2 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                        placeholder="Support quantitative data analysis&#10;Executive PowerPoint presentations&#10;Lead project mobilization"
+                        className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
                       />
                     </div>
 
@@ -2099,7 +2310,7 @@ export default function ClaraAiPlatform() {
 
       {/* APPLE-INSPIRED TRANSLUCENT FOOTER */}
       <footer className="mt-16 border-t border-slate-200/60 glass-panel py-8 text-center text-xs text-slate-400">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} Clara AI Platform. Precision Talent Intelligence.</p>
           <div className="flex items-center gap-4 text-slate-500 font-medium">
             <span>Serverless Neon DB</span>
