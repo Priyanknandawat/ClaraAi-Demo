@@ -22,24 +22,36 @@
   * **Overall Fit Assessment**: Executive recruiter narrative synthesizing candidate strengths and seniority alignment.
   * **Strong Matches (✓)**: Concrete proof points extracted directly from candidate experience.
   * **Gaps & High-Yield Interview Questions**: Identifies missing qualifications and formulates exact interview questions for recruiters.
-* **Multi-LLM Cascade**: High-speed inference using **Groq** (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `groq/compound`) and **Google Gemini** with intelligent fallback.
+* **Multi-LLM Cascade**: High-speed inference using **Groq** (`llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `qwen/qwen3.8-27b`) and **Google Gemini** with intelligent fallback.
 * **Bias-Free Compliance**: Strict prompting guards against using age, gender, race, or other protected characteristics in scoring.
 
-### 3. ⚖️ Side-by-Side Candidate Comparison Matrix
+### 3. 🤖 Interactive AI Copilots (TalentPulse & CareerPulse)
+* **Clara TalentPulse AI (Recruiter Intelligence)**:
+  * Ingests full workspace context: candidate scores, fit summaries, verified strengths, gaps, interview questions, and job requisitions.
+  * Natural language queries: candidate rankings, comparison across roles, critical risk briefs, and compact interview invite emails.
+  * Proactive interactive clarification: asks for specific target role or candidate details when requests are general.
+  * Strict role integrity verification: prevents cross-role hallucination.
+* **Clara CareerPulse AI (Candidate Career Coach)**:
+  * Ingests active job descriptions and candidate resume text.
+  * Suggests resume keywords, STAR bullet point revisions, and tailored interview practice questions.
+* **Ultra-Fast & Token-Efficient**: Sub-300ms response times with concise formatting and a 650-token budget.
+* **Apple Glass Widget**: Positioned at bottom-right (`fixed bottom-6 right-6`) with smooth scale-in animation, 1-click clipboard copying, and auto-reset on close.
+
+### 4. ⚖️ Side-by-Side Candidate Comparison Matrix
 * Compare 2 or 3 shortlisted candidates for any open position simultaneously.
 * Visual ranking ribbons (🏆 Top Match, 🥈 Runner Up, 🥉 Contender).
 * Direct side-by-side alignment across Match Score, Overall Fit, Key Strengths, and Identified Risks.
 * Executive recommendation summary to guide final interview selections.
 
-### 4. 💼 Full Requisition & Job Opening Management
+### 5. 💼 Full Requisition & Job Opening Management
 * **Create Requisitions**: Add custom openings with title, company, description, bulleted responsibilities, skills, and experience.
 * **Edit Existing Openings**: Live modal editor to update role criteria with real-time field validation.
 * **Delete Openings & Records**: Requisition removal with Apple-grade frosted confirmation dialogs.
 
-### 5. 🎨 Apple-Grade Glassmorphic UI System
+### 6. 🎨 Apple-Grade Glassmorphic UI System
 * **Frosted Glass Components**: `backdrop-blur-xl`, delicate border lighting, subtle glow effects, and modern typography.
 * **Apple Select Picklists**: Replaced default browser select inputs with sleek rounded-2xl picklist controls featuring custom vector chevrons.
-* **In-App Modal Confirmation**: Replaced dated browser `window.confirm()` and `alert()` popups with frosted confirmation dialogs and floating toast notifications.
+* **In-App Modal Confirmation**: Replaced dated browser popups with frosted confirmation dialogs and floating toast notifications.
 * **Slide-Over Resume Inspector**: Read and inspect original candidate resumes in an embedded slide-out drawer without leaving the evaluation dashboard.
 * **Export & Download**: Download original candidate resumes directly as `.docx` or formatted `.txt` files.
 
@@ -53,7 +65,7 @@
 | **Styling** | Tailwind CSS v4, Custom Glassmorphism tokens, CSS Variables |
 | **Database** | Serverless PostgreSQL ([Neon DB](https://neon.tech/)) via `postgres` client |
 | **Document Parsing** | Mammoth (`.docx` AST extraction and text sanitization) |
-| **AI / LLM Providers** | Groq (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`), Google Gemini, Grok |
+| **AI / LLM Providers** | Groq (`llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `qwen/qwen3.8-27b`), Google Gemini |
 | **Deployment** | Vercel Serverless Functions |
 
 ---
@@ -65,17 +77,19 @@ Clara-Ai/
 ├── src/
 │   ├── app/
 │   │   ├── api/
+│   │   │   ├── chat/
+│   │   │   │   └── route.ts       # POST: Multi-turn Copilot (TalentPulse & CareerPulse)
 │   │   │   ├── jobs/
 │   │   │   │   └── route.ts       # GET, POST, PUT, DELETE for job openings (Neon DB)
 │   │   │   └── screen/
-│   │   │       └── route.ts       # DOCX parsing, LLM cascade, screening DB storage
+│   │   │       └── route.ts       # DOCX parsing, LLM screening engine, SQL LEFT JOIN
 │   │   ├── globals.css            # Apple design tokens, animations, glassmorphism
 │   │   ├── layout.tsx             # Root layout with metadata and fonts
-│   │   └── page.tsx               # Dual portal, Recruiter Workspace, Comparison Matrix
+│   │   └── page.tsx               # Dual portal, Recruiter Workspace, Comparison Matrix, Copilot UI
 │   ├── data/
 │   │   └── jobs.ts                # Default seed job requisitions
 │   └── lib/
-│       └── db.ts                  # Neon PostgreSQL connection & auto-migration schemas
+│       └── db.ts                  # Neon DB connection pooling & cached auto-migrations
 ├── .env.local                     # Environment configuration (Keys & DB URL)
 ├── package.json
 ├── tsconfig.json
@@ -99,7 +113,7 @@ npm install
 Create a `.env.local` file in the root directory:
 
 ```env
-# AI Provider Keys (at least one is required for live AI evaluations)
+# AI Provider Keys (at least one is required for live AI evaluations & Copilot)
 GROQ_API_KEY=gsk_your_groq_api_key
 GEMINI_API_KEY=your_gemini_api_key
 
@@ -137,4 +151,4 @@ npm run start
 
 ## 📄 License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.
