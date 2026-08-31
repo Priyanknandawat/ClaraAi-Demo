@@ -438,7 +438,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Failed to parse DOCX file: ${parseError.message}` }, { status: 400 });
     }
 
-    const job = jobOpenings.find((o) => o.id === jobOpeningId);
+    let job = jobOpenings.find((o) => o.id === jobOpeningId);
+
+    if (!job && sql) {
+      try {
+        await ensureTablesExist();
+        const rows = await sql`SELECT * FROM jobs WHERE id = ${jobOpeningId} LIMIT 1`;
+        if (rows && rows.length > 0) {
+          const j = rows[0];
+          job = {
+            id: j.id,
+            title: j.title,
+            company: j.company,
+            description: j.description,
+            responsibilities: j.responsibilities || [],
+            skills: typeof j.skills === "string" ? JSON.parse(j.skills) : (j.skills || []),
+            experience: j.experience || [],
+            offers: j.offers || []
+          };
+        }
+      } catch (dbErr) {
+        console.warn("Could not find job in database:", dbErr);
+      }
+    }
+
+    if (!job) {
+      const formJobTitle = formData.get("jobTitle") as string | null;
+      const formJobCompany = formData.get("jobCompany") as string | null;
+      const formJobDescription = formData.get("jobDescription") as string | null;
+
+      if (formJobTitle) {
+        job = {
+          id: jobOpeningId,
+          title: cleanInputString(formJobTitle),
+          company: cleanInputString(formJobCompany || "Company"),
+          description: cleanInputString(formJobDescription || formJobTitle),
+          responsibilities: [],
+          skills: [],
+          experience: [],
+          offers: []
+        };
+      }
+    }
+
     if (!job) {
       return NextResponse.json({ error: "Selected job opening not found." }, { status: 400 });
     }
@@ -447,8 +489,8 @@ export async function POST(req: NextRequest) {
 Title: ${job.title}
 Company: ${job.company}
 Description: ${job.description}
-Responsibilities: ${job.responsibilities.map((r) => `- ${r}`).join("\n")}
-Skills: ${job.skills.map((s) => s.items.join(", ")).join("; ")}
+Responsibilities: ${(job.responsibilities || []).map((r) => `- ${r}`).join("\n")}
+Skills: ${(job.skills || []).map((s) => s.items ? s.items.join(", ") : "").filter(Boolean).join("; ")}
 `;
 
     const userHeaderKey = req.headers.get("x-llm-api-key");

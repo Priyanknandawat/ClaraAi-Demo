@@ -456,6 +456,8 @@ export default function ClaraAiPlatform() {
     setApiError(null);
     setFormStep("screening");
 
+    const currentJob = jobOpeningsList.find((j) => j.id === selectedJobId);
+
     const formData = new FormData();
     formData.append("file", resumeFile);
     formData.append("name", form.name.trim());
@@ -465,6 +467,11 @@ export default function ClaraAiPlatform() {
     formData.append("age", form.age.trim());
     formData.append("currentLocation", form.currentLocation.trim());
     formData.append("jobOpeningId", selectedJobId);
+    if (currentJob) {
+      formData.append("jobTitle", currentJob.title);
+      formData.append("jobCompany", currentJob.company);
+      formData.append("jobDescription", currentJob.description);
+    }
 
     const headers: Record<string, string> = {};
     const customKey = localStorage.getItem("clara_custom_api_key");
@@ -485,7 +492,6 @@ export default function ClaraAiPlatform() {
         throw new Error(data.error || "Screening failed. Please check your inputs or API key.");
       }
 
-      const currentJob = jobOpeningsList.find((j) => j.id === selectedJobId);
       const newScreening: SavedScreening = {
         id: data.id || `scr-${Date.now()}`,
         candidateName: form.name.trim(),
@@ -544,6 +550,9 @@ export default function ClaraAiPlatform() {
     formData.append("age", candidateForm.age.trim());
     formData.append("currentLocation", candidateForm.currentLocation.trim());
     formData.append("jobOpeningId", candidatePortalJob.id);
+    formData.append("jobTitle", candidatePortalJob.title);
+    formData.append("jobCompany", candidatePortalJob.company);
+    formData.append("jobDescription", candidatePortalJob.description);
 
     try {
       const response = await fetch("/api/screen", {
