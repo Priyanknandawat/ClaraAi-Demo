@@ -385,10 +385,30 @@ export default function ClaraAiPlatform() {
         chatContext.jobDescription = candidatePortalJob?.description || "";
         chatContext.allJobs = jobOpeningsList;
       } else {
-        const activeScr = selectedScreeningId ? screenings.find(s => s.id === selectedScreeningId) : null;
+        let currentScreenings = screenings;
+        if (currentScreenings.length === 0) {
+          try {
+            const stored = localStorage.getItem("clara_screenings");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed) && parsed.length > 0) currentScreenings = parsed;
+            }
+          } catch {}
+        }
+
+        const enrichedAllScreenings = currentScreenings.map((s: any) => {
+          const matchedJob = jobOpeningsList.find((j: any) => j.id === s.jobId);
+          return {
+            ...s,
+            jobTitle: s.jobTitle || matchedJob?.title || (s.jobId === "opening-a" ? "Founders Office Associate" : s.jobId === "opening-b" ? "Salesforce Developer Intern" : "Target Role"),
+            jobCompany: s.jobCompany || matchedJob?.company || (s.jobId === "opening-a" ? "Satva Partners" : s.jobId === "opening-b" ? "Salesforce" : "Company")
+          };
+        });
+
+        const activeScr = selectedScreeningId ? enrichedAllScreenings.find((s: any) => s.id === selectedScreeningId) : null;
         chatContext.selectedScreening = activeScr || null;
         chatContext.selectedJob = jobOpeningsList.find(j => j.id === (activeScr?.jobId || selectedJobId || compareJobId)) || null;
-        chatContext.allScreenings = screenings;
+        chatContext.allScreenings = enrichedAllScreenings;
         chatContext.allJobs = jobOpeningsList;
       }
 
