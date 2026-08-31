@@ -453,7 +453,7 @@ Skills: ${job.skills.map((s) => s.items.join(", ")).join("; ")}
 
     const userHeaderKey = req.headers.get("x-llm-api-key");
     const groqKey = process.env.GROQ_API_KEY || (process.env.LLM_API_KEY?.startsWith("gsk_") ? process.env.LLM_API_KEY : undefined);
-    const geminiKey = process.env.GEMINI_API_KEY || (process.env.LLM_API_KEY?.startsWith("AIzaSy") ? process.env.LLM_API_KEY : undefined);
+    const geminiKey = process.env.GEMINI_API_KEY || (process.env.LLM_API_KEY && !process.env.LLM_API_KEY.startsWith("gsk_") && !process.env.LLM_API_KEY.startsWith("xai-") ? process.env.LLM_API_KEY : undefined);
     const grokKey = process.env.GROK_API_KEY || (process.env.LLM_API_KEY?.startsWith("xai-") ? process.env.LLM_API_KEY : undefined);
     const genericKey = process.env.LLM_API_KEY;
 
