@@ -451,9 +451,31 @@ Responsibilities: ${job.responsibilities.map((r) => `- ${r}`).join("\n")}
 Skills: ${job.skills.map((s) => s.items.join(", ")).join("; ")}
 `;
 
-    const apiKey = req.headers.get("x-llm-api-key") || process.env.LLM_API_KEY || process.env.GROK_API_KEY || process.env.GROQ_API_KEY;
+    const userHeaderKey = req.headers.get("x-llm-api-key");
+    const groqKey = process.env.GROQ_API_KEY || (process.env.LLM_API_KEY?.startsWith("gsk_") ? process.env.LLM_API_KEY : undefined);
+    const geminiKey = process.env.GEMINI_API_KEY || (process.env.LLM_API_KEY?.startsWith("AIzaSy") ? process.env.LLM_API_KEY : undefined);
+    const grokKey = process.env.GROK_API_KEY || (process.env.LLM_API_KEY?.startsWith("xai-") ? process.env.LLM_API_KEY : undefined);
+    const genericKey = process.env.LLM_API_KEY;
 
-    if (!apiKey) {
+    // Determine candidate providers to try in order
+    const candidateProviders: { type: "groq" | "gemini" | "grok" | "generic"; key: string }[] = [];
+
+    if (userHeaderKey) {
+      if (userHeaderKey.startsWith("gsk_")) candidateProviders.push({ type: "groq", key: userHeaderKey });
+      else if (userHeaderKey.startsWith("xai-")) candidateProviders.push({ type: "grok", key: userHeaderKey });
+      else candidateProviders.push({ type: "gemini", key: userHeaderKey });
+    }
+
+    if (groqKey) candidateProviders.push({ type: "groq", key: groqKey });
+    if (geminiKey) candidateProviders.push({ type: "gemini", key: geminiKey });
+    if (grokKey) candidateProviders.push({ type: "grok", key: grokKey });
+    if (genericKey && !candidateProviders.some(p => p.key === genericKey)) {
+      if (genericKey.startsWith("gsk_")) candidateProviders.push({ type: "groq", key: genericKey });
+      else if (genericKey.startsWith("xai-")) candidateProviders.push({ type: "grok", key: genericKey });
+      else candidateProviders.push({ type: "gemini", key: genericKey });
+    }
+
+    if (candidateProviders.length === 0) {
       const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
       const screeningId = `scr-${Date.now()}`;
       
@@ -469,31 +491,54 @@ Skills: ${job.skills.map((s) => s.items.join(", ")).join("; ")}
       return NextResponse.json({ ...mockResult, id: screeningId, resumeText, resumeHtml });
     }
 
-    try {
-      let evaluation: any;
-      if (apiKey.startsWith("gsk_")) {
-        evaluation = await callGroqAPI(apiKey, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
-      } else if (apiKey.startsWith("xai-")) {
-        evaluation = await callGrokAPI(apiKey, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
-      } else {
-        evaluation = await callGeminiAPI(apiKey, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
-      }
+    let evaluation: any = null;
+    let lastProviderError: Error | null = null;
 
+    for (const provider of candidateProviders) {
+      try {
+        if (provider.type === "groq") {
+          evaluation = await callGroqAPI(provider.key, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
+        } else if (provider.type === "grok") {
+          evaluation = await callGrokAPI(provider.key, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
+        } else {
+          evaluation = await callGeminiAPI(provider.key, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
+        }
+
+        if (evaluation) break;
+      } catch (providerErr: any) {
+        console.warn(`Provider ${provider.type} failed, attempting next provider if configured...`, providerErr.message);
+        lastProviderError = providerErr;
+      }
+    }
+
+    if (!evaluation) {
+      const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
+      const warningMsg = `LLM screening failed (${lastProviderError?.message || "Unknown error"}). Showing simulated result instead.`;
       const screeningId = `scr-${Date.now()}`;
+      
       if (sql) {
         try {
           await ensureTablesExist();
           await sql`
             INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text, resume_html)
-            VALUES (${screeningId}, ${name}, ${email}, ${phone}, ${address}, ${Number(age) || 25}, ${currentLocation}, ${jobOpeningId}, ${evaluation.match_score}, ${evaluation.overall_fit}, ${evaluation.strong_matches || []}, ${JSON.stringify(evaluation.gaps_and_questions || [])}, ${evaluation.warning || null}, ${resumeText}, ${resumeHtml})
+            VALUES (${screeningId}, ${name}, ${email}, ${phone}, ${address}, ${Number(age) || 25}, ${currentLocation}, ${jobOpeningId}, ${mockResult.match_score}, ${mockResult.overall_fit}, ${mockResult.strong_matches || []}, ${JSON.stringify(mockResult.gaps_and_questions || [])}, ${warningMsg}, ${resumeText}, ${resumeHtml})
           `;
         } catch (dbError) { console.error("DB Save failed", dbError); }
       }
-      return NextResponse.json({ ...evaluation, id: screeningId, resumeText, resumeHtml });
-    } catch (llmError: any) {
-      const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
-      return NextResponse.json({ ...mockResult, resumeText, resumeHtml, warning: `LLM failed: ${llmError.message}` });
+      return NextResponse.json({ ...mockResult, id: screeningId, resumeText, resumeHtml, warning: warningMsg });
     }
+
+    const screeningId = `scr-${Date.now()}`;
+    if (sql) {
+      try {
+        await ensureTablesExist();
+        await sql`
+          INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text, resume_html)
+          VALUES (${screeningId}, ${name}, ${email}, ${phone}, ${address}, ${Number(age) || 25}, ${currentLocation}, ${jobOpeningId}, ${evaluation.match_score}, ${evaluation.overall_fit}, ${evaluation.strong_matches || []}, ${JSON.stringify(evaluation.gaps_and_questions || [])}, ${evaluation.warning || null}, ${resumeText}, ${resumeHtml})
+        `;
+      } catch (dbError) { console.error("DB Save failed", dbError); }
+    }
+    return NextResponse.json({ ...evaluation, id: screeningId, resumeText, resumeHtml });
   } catch (err: any) {
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
