@@ -213,9 +213,21 @@ export default function ClaraAiPlatform() {
   const [filterJobId, setFilterJobId] = useState<string>("all");
   const [filterFit, setFilterFit] = useState<string>("all");
 
+  // Delete Confirmation Modal State (Apple Glass Dialog)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean;
+    type: "job" | "screening";
+    id: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
+
+  // Modern Toast Notification Message
+  const [toastNotification, setToastNotification] = useState<string | null>(null);
+
   // Lock background scroll when any modal is open to prevent background text bleed
   useEffect(() => {
-    if (candidatePortalJob || editingJob) {
+    if (candidatePortalJob || editingJob || deleteConfirmState) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -223,7 +235,7 @@ export default function ClaraAiPlatform() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [candidatePortalJob, editingJob]);
+  }, [candidatePortalJob, editingJob, deleteConfirmState]);
 
   // Load database jobs and screenings on mount (with localStorage fallback)
   useEffect(() => {
@@ -308,13 +320,20 @@ export default function ClaraAiPlatform() {
     } catch {}
   };
 
+  const showToast = (msg: string) => {
+    setToastNotification(msg);
+    setTimeout(() => {
+      setToastNotification((prev) => (prev === msg ? null : prev));
+    }, 3500);
+  };
+
   const handleSaveApiKey = () => {
     if (tempApiKey.trim()) {
       localStorage.setItem("clara_custom_api_key", tempApiKey.trim());
-      alert("API Key saved to browser local storage. It will be passed with your evaluation requests.");
+      showToast("API Key saved to browser storage.");
     } else {
       localStorage.removeItem("clara_custom_api_key");
-      alert("Custom API Key cleared.");
+      showToast("Custom API Key cleared.");
     }
   };
 
@@ -796,26 +815,68 @@ export default function ClaraAiPlatform() {
     }
   };
 
-  // Delete Job Opening Action
-  const handleDeleteJobOpening = async (jobId: string, e?: React.MouseEvent) => {
+  // Trigger Apple-Style Delete Confirmation for Job Opening
+  const triggerDeleteJobOpening = (jobId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const targetJob = jobOpeningsList.find(j => j.id === jobId);
-    if (!confirm(`Are you sure you want to delete "${targetJob ? targetJob.title : "this job opening"}"?`)) return;
+    setDeleteConfirmState({
+      isOpen: true,
+      type: "job",
+      id: jobId,
+      title: "Delete Job Position?",
+      subtitle: `Are you sure you want to delete "${targetJob ? targetJob.title : "this position"}"? This will also remove it from active career postings.`
+    });
+  };
 
-    try {
-      await fetch(`/api/jobs?id=${jobId}`, { method: "DELETE" });
-    } catch (err) {
-      console.warn("Could not delete from database, removing locally", err);
+  // Trigger Apple-Style Delete Confirmation for Evaluation Record
+  const triggerDeleteScreening = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const target = screenings.find(s => s.id === id);
+    setDeleteConfirmState({
+      isOpen: true,
+      type: "screening",
+      id,
+      title: "Delete Evaluation Record?",
+      subtitle: `Are you sure you want to permanently delete the evaluation report for "${target ? target.candidateName : "this candidate"}"?`
+    });
+  };
+
+  // Confirm and Execute Delete
+  const handleExecuteDelete = async () => {
+    if (!deleteConfirmState) return;
+
+    if (deleteConfirmState.type === "job") {
+      const jobId = deleteConfirmState.id;
+      try {
+        await fetch(`/api/jobs?id=${jobId}`, { method: "DELETE" });
+      } catch (err) {
+        console.warn("Could not delete from database, removing locally", err);
+      }
+      const updated = jobOpeningsList.filter(j => j.id !== jobId);
+      setJobOpeningsList(updated);
+      if (compareJobId === jobId && updated.length > 0) {
+        setCompareJobId(updated[0].id);
+      }
+      if (selectedJobId === jobId) {
+        setSelectedJobId("");
+      }
+      showToast("Job position deleted successfully.");
+    } else if (deleteConfirmState.type === "screening") {
+      const id = deleteConfirmState.id;
+      try {
+        await fetch(`/api/screen?id=${id}`, { method: "DELETE" });
+      } catch (err) {
+        console.warn("Could not delete from database, removing locally", err);
+      }
+      const filtered = screenings.filter(s => s.id !== id);
+      saveScreeningsToStorage(filtered);
+      if (selectedScreeningId === id) {
+        setSelectedScreeningId(null);
+      }
+      showToast("Evaluation record deleted.");
     }
 
-    const updated = jobOpeningsList.filter(j => j.id !== jobId);
-    setJobOpeningsList(updated);
-    if (compareJobId === jobId && updated.length > 0) {
-      setCompareJobId(updated[0].id);
-    }
-    if (selectedJobId === jobId) {
-      setSelectedJobId("");
-    }
+    setDeleteConfirmState(null);
   };
 
   // Score styling helper
@@ -824,24 +885,6 @@ export default function ClaraAiPlatform() {
     if (score >= 70) return { text: "Good fit", color: "bg-blue-50 text-blue-700 border-blue-200", bar: "bg-blue-500" };
     if (score >= 50) return { text: "Moderate fit", color: "bg-amber-50 text-amber-700 border-amber-200", bar: "bg-amber-500" };
     return { text: "Weak fit", color: "bg-rose-50 text-rose-700 border-rose-200", bar: "bg-rose-500" };
-  };
-
-  // Delete evaluation record
-  const handleDeleteScreening = async (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (confirm("Are you sure you want to delete this candidate evaluation record?")) {
-      try {
-        await fetch(`/api/screen?id=${id}`, { method: "DELETE" });
-      } catch (err) {
-        console.warn("Could not delete from database, removing locally", err);
-      }
-
-      const filtered = screenings.filter(s => s.id !== id);
-      saveScreeningsToStorage(filtered);
-      if (selectedScreeningId === id) {
-        setSelectedScreeningId(null);
-      }
-    }
   };
 
   // Filtered Screenings list
@@ -1349,17 +1392,24 @@ export default function ClaraAiPlatform() {
 
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-slate-600">Target Role:</span>
-                    <select
-                      value={compareJobId}
-                      onChange={(e) => setCompareJobId(e.target.value)}
-                      className="px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 shadow-sm"
-                    >
-                      {jobOpeningsList.map((job) => (
-                        <option key={job.id} value={job.id}>
-                          {job.title} — {job.company}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={compareJobId}
+                        onChange={(e) => setCompareJobId(e.target.value)}
+                        className="appearance-none bg-white border border-slate-200/90 rounded-2xl pl-4 pr-10 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm hover:border-slate-300 transition-all cursor-pointer"
+                      >
+                        {jobOpeningsList.map((job) => (
+                          <option key={job.id} value={job.id}>
+                            {job.title} — {job.company}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1670,28 +1720,42 @@ export default function ClaraAiPlatform() {
                       />
 
                       <div className="flex flex-wrap items-center gap-3">
-                        <select 
-                          value={filterJobId}
-                          onChange={(e) => setFilterJobId(e.target.value)}
-                          className="py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
-                        >
-                          <option value="all">All openings</option>
-                          {jobOpeningsList.map(job => (
-                            <option key={job.id} value={job.id}>{job.title}</option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select 
+                            value={filterJobId}
+                            onChange={(e) => setFilterJobId(e.target.value)}
+                            className="appearance-none bg-white border border-slate-200/90 rounded-2xl pl-4 pr-10 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm hover:border-slate-300 transition-all cursor-pointer"
+                          >
+                            <option value="all">All openings</option>
+                            {jobOpeningsList.map(job => (
+                              <option key={job.id} value={job.id}>{job.title}</option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                              <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
 
-                        <select 
-                          value={filterFit}
-                          onChange={(e) => setFilterFit(e.target.value)}
-                          className="py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500"
-                        >
-                          <option value="all">All match tiers</option>
-                          <option value="strong">Strong match (&gt;= 85)</option>
-                          <option value="good">Good fit (70-84)</option>
-                          <option value="moderate">Moderate fit (50-69)</option>
-                          <option value="weak">Weak fit (&lt; 50)</option>
-                        </select>
+                        <div className="relative">
+                          <select 
+                            value={filterFit}
+                            onChange={(e) => setFilterFit(e.target.value)}
+                            className="appearance-none bg-white border border-slate-200/90 rounded-2xl pl-4 pr-10 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm hover:border-slate-300 transition-all cursor-pointer"
+                          >
+                            <option value="all">All match tiers</option>
+                            <option value="strong">Strong match (&gt;= 85)</option>
+                            <option value="good">Good fit (70-84)</option>
+                            <option value="moderate">Moderate fit (50-69)</option>
+                            <option value="weak">Weak fit (&lt; 50)</option>
+                          </select>
+                          <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                              <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1758,7 +1822,7 @@ export default function ClaraAiPlatform() {
                                     Review
                                   </button>
                                   <button 
-                                    onClick={(e) => handleDeleteScreening(s.id, e)}
+                                    onClick={(e) => triggerDeleteScreening(s.id, e)}
                                     className="text-rose-500 hover:text-rose-700 font-semibold"
                                   >
                                     Delete
@@ -1868,23 +1932,30 @@ export default function ClaraAiPlatform() {
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           Target Job Opening <span className="text-rose-500 font-bold">*</span>
                         </label>
-                        <select
-                          value={selectedJobId}
-                          onChange={(e) => {
-                            setSelectedJobId(e.target.value);
-                            if (formErrors.jobId) setFormErrors((prev) => ({ ...prev, jobId: undefined }));
-                          }}
-                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                            formErrors.jobId ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                          }`}
-                        >
-                          <option value="">Select a target role...</option>
-                          {jobOpeningsList.map((job) => (
-                            <option key={job.id} value={job.id}>
-                              {job.title} — {job.company}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={selectedJobId}
+                            onChange={(e) => {
+                              setSelectedJobId(e.target.value);
+                              if (formErrors.jobId) setFormErrors((prev) => ({ ...prev, jobId: undefined }));
+                            }}
+                            className={`w-full appearance-none bg-white border rounded-2xl pl-4 pr-10 py-2.5 text-xs font-semibold text-slate-800 outline-none transition-all cursor-pointer shadow-sm ${
+                              formErrors.jobId ? "border-rose-500 bg-rose-50/30" : "border-slate-200/90 hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                            }`}
+                          >
+                            <option value="">Select a target role...</option>
+                            {jobOpeningsList.map((job) => (
+                              <option key={job.id} value={job.id}>
+                                {job.title} — {job.company}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                              <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
                         {formErrors.jobId && <p className="text-[10px] text-rose-500 font-medium mt-1">{formErrors.jobId}</p>}
                       </div>
 
@@ -2135,7 +2206,7 @@ export default function ClaraAiPlatform() {
                             ✏️ Edit
                           </button>
                           <button
-                            onClick={(e) => handleDeleteJobOpening(job.id, e)}
+                            onClick={(e) => triggerDeleteJobOpening(job.id, e)}
                             className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors text-xs font-semibold"
                             title="Delete job opening"
                           >
@@ -2643,7 +2714,7 @@ export default function ClaraAiPlatform() {
                   <button
                     type="button"
                     onClick={(e) => {
-                      if (editingJob) handleDeleteJobOpening(editingJob.id, e);
+                      if (editingJob) triggerDeleteJobOpening(editingJob.id, e);
                       setEditingJob(null);
                     }}
                     className="text-xs font-semibold text-rose-600 hover:text-rose-800"
@@ -2671,6 +2742,57 @@ export default function ClaraAiPlatform() {
               </form>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* APPLE-STYLE DELETE CONFIRMATION DIALOG MODAL (Z-99999) */}
+      {deleteConfirmState && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[99999] flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setDeleteConfirmState(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-[0_25px_90px_rgba(0,0,0,0.6)] border border-slate-200 text-center space-y-4 animate-scaleIn my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner border border-rose-100">
+              🗑️
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-slate-950">{deleteConfirmState.title}</h3>
+              <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                {deleteConfirmState.subtitle}
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmState(null)}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 text-xs font-semibold rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteDelete}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-lg shadow-rose-600/25 transition-all"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* APPLE-STYLE FLOATING TOAST NOTIFICATION */}
+      {toastNotification && (
+        <div className="fixed bottom-6 right-6 z-[999999] animate-scaleIn">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>{toastNotification}</span>
           </div>
         </div>
       )}
