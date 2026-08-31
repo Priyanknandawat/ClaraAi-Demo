@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ClaraScreen - Review Requirements</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f8f9ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00174b",
+                        "tertiary-fixed": "#dfe3e7",
+                        "inverse-surface": "#27313f",
+                        "on-background": "#121c2a",
+                        "on-surface": "#121c2a",
+                        "primary-container": "#2563eb",
+                        "secondary-container": "#d0e1fb",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#b4c5ff",
+                        "surface-container": "#e6eeff",
+                        "on-tertiary-fixed-variant": "#43474b",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#0053db",
+                        "surface-container-highest": "#d9e3f6",
+                        "on-primary-container": "#eeefff",
+                        "surface-dim": "#d0dbed",
+                        "tertiary": "#515659",
+                        "primary-fixed": "#dbe1ff",
+                        "on-secondary-container": "#54647a",
+                        "outline": "#737686",
+                        "background": "#f8f9ff",
+                        "on-tertiary-container": "#edf1f5",
+                        "on-surface-variant": "#434655",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-secondary-fixed": "#0b1c30",
+                        "surface-container-high": "#dee9fc",
+                        "surface-container-low": "#eff4ff",
+                        "secondary": "#505f76",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed-dim": "#c3c7cb",
+                        "secondary-fixed": "#d3e4fe",
+                        "on-tertiary": "#ffffff",
+                        "surface-variant": "#d9e3f6",
+                        "tertiary-container": "#696e71",
+                        "surface-bright": "#f8f9ff",
+                        "on-tertiary-fixed": "#171c1f",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#004ac6",
+                        "outline-variant": "#c3c6d7",
+                        "secondary-fixed-dim": "#b7c8e1"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "sm": "8px",
+                        "gutter": "16px",
+                        "xxl": "48px",
+                        "base": "8px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "mono-sm": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "headline-xl": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "mono-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-xl": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        [data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased h-screen overflow-hidden flex">
+<!-- SideNavBar -->
+<nav class="bg-surface-container-lowest h-screen w-64 fixed left-0 top-0 flex flex-col border-r border-outline-variant z-50">
+<div class="flex flex-col h-full p-4 gap-2">
+<!-- Header -->
+<div class="flex items-center gap-3 px-4 py-4 mb-4">
+<div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md font-bold">C</div>
+<div>
+<div class="font-headline-md text-headline-md font-bold text-primary">ClaraScreen</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">AI Resume Screener</div>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-primary bg-secondary-container/30 rounded-lg font-bold scale-[0.98] transition-transform" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="filter_list" data-weight="fill">filter_list</span>
+<span class="font-label-md text-label-md">Screenings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="groups">groups</span>
+<span class="font-label-md text-label-md">Candidates</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+<!-- Footer Links -->
+<div class="mt-auto pt-4 border-t border-outline-variant/30 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_circle">account_circle</span>
+<span class="font-label-md text-label-md">Account</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg text-error hover:bg-error-container/30" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="bg-surface h-16 fixed top-0 right-0 left-64 z-40 border-b border-outline-variant flex justify-between items-center px-6">
+<div class="flex items-center gap-4">
+<!-- Search Bar (on_left) -->
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full h-9 pl-9 pr-8 bg-surface-container-low border border-outline-variant rounded-lg text-body-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Global Search" type="text"/>
+<div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+<kbd class="font-mono-sm text-[10px] bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface-variant border border-outline-variant">⌘</kbd>
+<kbd class="font-mono-sm text-[10px] bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface-variant border border-outline-variant">K</kbd>
+</div>
+</div>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="help">help</span>
+</button>
+<div class="w-px h-6 bg-outline-variant/50 mx-1"></div>
+<img class="w-9 h-9 rounded-full border border-outline-variant object-cover ml-1" data-alt="Professional corporate headshot of a female user with a neutral background, high key lighting, crisp focus, representing an enterprise software user avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDn_tWuZQarOdq3pHSAweLQdBU6iIJCaMj1TTbH-Q99khuU5_siYP3XuVp4PEBQmbmCU-fe815o3_yyKoEYpX60cyadHcQfcTKB_nyIGTxRUKvzbiOvRkeNRkeqX-WZR8MiB73OryBWf299VD0da-A9LbZr332Ek8iNpiD-fX1FZj10XF-Zz-_j5F-xyJinWXHvByQDeZLtxFe3wFZRTVOYhBz9g5tOb5V0b0QtukqFvamaD20h73k6Vg"/>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-64 mt-16 flex-1 w-full h-[calc(100vh-64px)] overflow-y-auto bg-background p-lg flex justify-center">
+<div class="w-full max-w-container-max flex flex-col gap-lg">
+<!-- Header Section -->
+<div class="flex flex-col gap-sm">
+<div class="flex items-center gap-2 text-on-surface-variant font-label-md text-label-md mb-2">
+<span class="text-primary">Step 1: Requirements</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span>Step 2: Add Candidates</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span>Step 3: Review Matches</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-background">Review job requirements</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Confirm the requirements before screening candidates.</p>
+</div>
+<!-- Content Grid -->
+<div class="grid grid-cols-12 gap-lg pb-xxl">
+<!-- Left Column (Role Summary & Responsibilities) -->
+<div class="col-span-12 lg:col-span-8 flex flex-col gap-md">
+<!-- Role Summary Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-background">AI Full-Stack Developer</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Requisition #REQ-0992</p>
+</div>
+<button class="text-primary hover:bg-surface-container-low p-2 rounded-lg transition-colors flex items-center gap-2 font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">edit</span> Edit
+                            </button>
+</div>
+<div class="h-px w-full bg-outline-variant/50"></div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-md">
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Experience</span>
+<span class="font-body-md text-body-md font-medium text-on-background">Senior, 5+ years</span>
+</div>
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Education</span>
+<span class="font-body-md text-body-md font-medium text-on-background">B.S. CS or equiv.</span>
+</div>
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Location</span>
+<span class="font-body-md text-body-md font-medium text-on-background">Remote (US)</span>
+</div>
+<div class="flex flex-col gap-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Type</span>
+<span class="font-body-md text-body-md font-medium text-on-background">Full-time</span>
+</div>
+</div>
+</div>
+<!-- Key Responsibilities -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-background">Key Responsibilities</h3>
+<button class="text-primary hover:bg-surface-container-low p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+<ul class="flex flex-col gap-sm">
+<li class="flex items-start gap-3 p-3 bg-surface hover:bg-surface-container-low transition-colors rounded-lg border border-transparent hover:border-outline-variant group">
+<span class="material-symbols-outlined text-[20px] text-primary mt-0.5">check_circle</span>
+<span class="font-body-md text-body-md text-on-surface flex-1">Design, build, and maintain highly scalable full-stack applications integrating state-of-the-art LLMs.</span>
+<button class="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</li>
+<li class="flex items-start gap-3 p-3 bg-surface hover:bg-surface-container-low transition-colors rounded-lg border border-transparent hover:border-outline-variant group">
+<span class="material-symbols-outlined text-[20px] text-primary mt-0.5">check_circle</span>
+<span class="font-body-md text-body-md text-on-surface flex-1">Develop robust backend systems utilizing Node.js, Python, and vector databases (e.g., Pinecone, Weaviate).</span>
+<button class="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</li>
+<li class="flex items-start gap-3 p-3 bg-surface hover:bg-surface-container-low transition-colors rounded-lg border border-transparent hover:border-outline-variant group">
+<span class="material-symbols-outlined text-[20px] text-primary mt-0.5">check_circle</span>
+<span class="font-body-md text-body-md text-on-surface flex-1">Create responsive, high-performance frontend interfaces using React, TypeScript, and modern CSS frameworks.</span>
+<button class="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</li>
+<li class="flex items-start gap-3 p-3 bg-surface hover:bg-surface-container-low transition-colors rounded-lg border border-transparent hover:border-outline-variant group">
+<span class="material-symbols-outlined text-[20px] text-primary mt-0.5">check_circle</span>
+<span class="font-body-md text-body-md text-on-surface flex-1">Collaborate with data scientists to optimize prompts, context windows, and RAG architectures for production use.</span>
+<button class="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all"><span class="material-symbols-outlined text-[16px]">close</span></button>
+</li>
+</ul>
+</div>
+</div>
+<!-- Right Column (Skills) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-md">
+<!-- Required Skills -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-background">Required Skills</h3>
+<span class="bg-error-container text-on-error-container font-label-sm text-label-sm px-2 py-0.5 rounded-full">Hard filter</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Candidates missing these will be penalized heavily in screening.</p>
+<div class="flex flex-wrap gap-2 mt-2">
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface hover:border-primary transition-colors cursor-pointer group">
+                                JavaScript
+                                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface hover:border-primary transition-colors cursor-pointer group">
+                                TypeScript
+                                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface hover:border-primary transition-colors cursor-pointer group">
+                                React
+                                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface hover:border-primary transition-colors cursor-pointer group">
+                                Node.js
+                                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface hover:border-primary transition-colors cursor-pointer group">
+                                PostgreSQL
+                                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-error">close</span>
+</div>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface-variant hover:border-primary hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span> Add Skill
+                            </button>
+</div>
+</div>
+<!-- Preferred Skills -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md">
+<h3 class="font-headline-md text-headline-md text-on-background">Preferred Skills</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Bonus signals that increase candidate match score.</p>
+<div class="flex flex-wrap gap-2 mt-2">
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low border border-transparent rounded-lg font-body-sm text-body-sm text-primary hover:border-primary/30 transition-colors cursor-pointer group">
+                                RAG Architecture
+                                <span class="material-symbols-outlined text-[14px] text-primary/70 group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low border border-transparent rounded-lg font-body-sm text-body-sm text-primary hover:border-primary/30 transition-colors cursor-pointer group">
+                                Vector Databases
+                                <span class="material-symbols-outlined text-[14px] text-primary/70 group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low border border-transparent rounded-lg font-body-sm text-body-sm text-primary hover:border-primary/30 transition-colors cursor-pointer group">
+                                Python
+                                <span class="material-symbols-outlined text-[14px] text-primary/70 group-hover:text-error">close</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low border border-transparent rounded-lg font-body-sm text-body-sm text-primary hover:border-primary/30 transition-colors cursor-pointer group">
+                                Vercel
+                                <span class="material-symbols-outlined text-[14px] text-primary/70 group-hover:text-error">close</span>
+</div>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-dashed border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface-variant hover:border-primary hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span> Add Skill
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Bottom Actions -->
+<div class="fixed bottom-0 left-64 right-0 p-md bg-surface-container-lowest border-t border-outline-variant flex justify-between items-center z-30 shadow-[0_-4px_12px_rgba(0,0,0,0.02)]">
+<button class="px-6 py-2.5 bg-surface border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span> Back
+                </button>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 bg-transparent border border-transparent rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors">
+                        Save Draft
+                    </button>
+<button class="px-6 py-2.5 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md hover:bg-primary-container/90 transition-colors flex items-center gap-2 shadow-sm">
+                        Continue to Candidates <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

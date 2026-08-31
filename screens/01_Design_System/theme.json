@@ -1,0 +1,138 @@
+{
+  "colorMode": "LIGHT",
+  "font": "INTER",
+  "roundness": "ROUND_EIGHT",
+  "customColor": "#2563eb",
+  "headlineFont": "INTER",
+  "bodyFont": "INTER",
+  "labelFont": "INTER",
+  "namedColors": {
+    "on_secondary_fixed": "#0b1c30",
+    "surface_container_highest": "#d9e3f6",
+    "surface_container_low": "#eff4ff",
+    "on_error_container": "#93000a",
+    "on_tertiary_fixed_variant": "#43474b",
+    "tertiary_fixed": "#dfe3e7",
+    "on_secondary_fixed_variant": "#38485d",
+    "on_secondary_container": "#54647a",
+    "on_error": "#ffffff",
+    "error_container": "#ffdad6",
+    "on_surface": "#121c2a",
+    "on_primary": "#ffffff",
+    "surface_bright": "#f8f9ff",
+    "inverse_primary": "#b4c5ff",
+    "secondary": "#505f76",
+    "surface_container_lowest": "#ffffff",
+    "on_tertiary_container": "#edf1f5",
+    "background": "#f8f9ff",
+    "on_surface_variant": "#434655",
+    "secondary_container": "#d0e1fb",
+    "surface_dim": "#d0dbed",
+    "on_secondary": "#ffffff",
+    "tertiary_container": "#696e71",
+    "surface_container": "#e6eeff",
+    "secondary_fixed": "#d3e4fe",
+    "inverse_on_surface": "#eaf1ff",
+    "on_primary_container": "#eeefff",
+    "primary_fixed": "#dbe1ff",
+    "surface_container_high": "#dee9fc",
+    "surface_variant": "#d9e3f6",
+    "surface": "#f8f9ff",
+    "on_background": "#121c2a",
+    "surface_tint": "#0053db",
+    "error": "#ba1a1a",
+    "outline_variant": "#c3c6d7",
+    "primary_container": "#2563eb",
+    "primary_fixed_dim": "#b4c5ff",
+    "outline": "#737686",
+    "secondary_fixed_dim": "#b7c8e1",
+    "tertiary_fixed_dim": "#c3c7cb",
+    "on_tertiary": "#ffffff",
+    "tertiary": "#515659",
+    "on_tertiary_fixed": "#171c1f",
+    "on_primary_fixed": "#00174b",
+    "primary": "#004ac6",
+    "on_primary_fixed_variant": "#003ea8",
+    "inverse_surface": "#27313f"
+  },
+  "designMd": "---\nname: ClaraScreen Design System\ncolors:\n  surface: '#f8f9ff'\n  surface-dim: '#d0dbed'\n  surface-bright: '#f8f9ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#eff4ff'\n  surface-container: '#e6eeff'\n  surface-container-high: '#dee9fc'\n  surface-container-highest: '#d9e3f6'\n  on-surface: '#121c2a'\n  on-surface-variant: '#434655'\n  inverse-surface: '#27313f'\n  inverse-on-surface: '#eaf1ff'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#505f76'\n  on-secondary: '#ffffff'\n  secondary-container: '#d0e1fb'\n  on-secondary-container: '#54647a'\n  tertiary: '#515659'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#696e71'\n  on-tertiary-container: '#edf1f5'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d3e4fe'\n  secondary-fixed-dim: '#b7c8e1'\n  on-secondary-fixed: '#0b1c30'\n  on-secondary-fixed-variant: '#38485d'\n  tertiary-fixed: '#dfe3e7'\n  tertiary-fixed-dim: '#c3c7cb'\n  on-tertiary-fixed: '#171c1f'\n  on-tertiary-fixed-variant: '#43474b'\n  background: '#f8f9ff'\n  on-background: '#121c2a'\n  surface-variant: '#d9e3f6'\ntypography:\n  headline-xl:\n    fontFamily: Inter\n    fontSize: 36px\n    fontWeight: '700'\n    lineHeight: 44px\n    letterSpacing: -0.02em\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 24px\n    fontWeight: '600'\n    lineHeight: 32px\n    letterSpacing: -0.01em\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 20px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 13px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '600'\n    lineHeight: 16px\n    letterSpacing: 0.05em\n  label-sm:\n    fontFamily: Inter\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 14px\n  mono-sm:\n    fontFamily: JetBrains Mono\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  base: 8px\n  xs: 4px\n  sm: 8px\n  md: 16px\n  lg: 24px\n  xl: 32px\n  xxl: 48px\n  container-max: 1280px\n  gutter: 16px\n---\n\n## Brand & Style\n\nThe design system is engineered for high-performance enterprise recruitment. It adopts a **Corporate / Modern** aesthetic that balances the technical precision of AI with the human-centric nature of hiring. The brand personality is authoritative yet unobtrusive, acting as a sophisticated \"glass lens\" through which recruiters analyze data.\n\nThe visual direction draws from \"Safe\" enterprise patterns: high information density, strict alignment, and a focus on content over chrome. It avoids decorative distractions, favoring a utilitarian elegance that signals speed, reliability, and institutional trust. The goal is to make complex AI-driven resume scoring feel transparent, evidence-based, and immediately actionable.\n\n## Colors\n\nThe palette is anchored by a refined professional blue, utilized strategically for primary actions and focus states. The neutral scale is the foundation of the system, using deep slates for maximum legibility and subtle grays for structural containment.\n\n### Functional Color Application\n- **Primary (`#2563EB`):** Reserved for the \"North Star\" actions: submitting a batch, confirming a hire, or primary navigation indicators.\n- **Surface & Background:** The application uses `#FAFAFA` for the main canvas to reduce eye strain, while pure white (`#FFFFFF`) is used for elevated cards and data containers to create a subtle layered effect.\n- **Status Indicators:** A semantic system for AI \"Match Levels\":\n    - **Strong Match:** Success Green (`#10B981`)\n    - **Good/Consider:** Warning Amber (`#F59E0B`)\n    - **Weak/No Match:** Error Red (`#EF4444`)\n    - **Processing:** Primary Blue or Neutral Slate with an indeterminate motion state.\n\n## Typography\n\nThis design system utilizes **Inter** for all UI and editorial content to ensure maximum readability at small sizes\u2014critical for resume screening and data-heavy tables.\n\n- **Hierarchy:** We use a tight vertical rhythm. Headlines use slight negative letter-spacing to feel more \"locked-in\" and professional.\n- **Data Display:** For AI confidence scores and metadata, `body-sm` and `label-md` are preferred to maintain high information density without sacrificing clarity.\n- **Technical Context:** A monospaced font (JetBrains Mono) is used sparingly for technical metadata or specific AI-generated \"Reasoning\" blocks to distinguish machine-generated logic from human-readable content.\n\n## Layout & Spacing\n\nThe system is built on a **fixed-fluid hybrid 8px grid**. Content containers follow a standard 12-column grid on desktop but prioritize \"compactness\" to ensure recruiters can see as many candidates as possible above the fold.\n\n- **Density:** We utilize \"Comfortable,\" \"Compact,\" and \"Dense\" spacing modes. The default is **Compact** (16px padding for cards, 8px for list items).\n- **Desktop:** 12 columns, 1280px max-width, 24px margins.\n- **Tablet:** 8 columns, 16px margins.\n- **Mobile:** 4 columns, 16px margins.\n- **Alignment:** All elements must align to the 8px baseline. Use `16px` (md) for grouping related items and `32px` (xl) for separating major sections.\n\n## Elevation & Depth\n\nThis design system uses **Tonal Layers** and **Low-contrast outlines** rather than heavy shadows to convey depth. This keeps the interface feeling \"flat\" and fast, consistent with modern SaaS tools like Vercel or Linear.\n\n- **Level 0 (Canvas):** `#FAFAFA` \u2014 The base layer.\n- **Level 1 (Cards/Sidebar):** Pure white `#FFFFFF` with a 1px border of `#E5E7EB`. No shadow.\n- **Level 2 (Popovers/Modals):** Pure white `#FFFFFF` with a subtle, diffused ambient shadow: `0 4px 12px rgba(0,0,0,0.05)` and a `#D1D5DB` border.\n- **Focus States:** A 2px ring of `primary_color_hex` with an offset to ensure clear keyboard navigation and active selection visibility.\n\n## Shapes\n\nThe design system uses a **Rounded** (Level 2) shape language to soften the industrial feel of the data. \n\n- **Components:** Buttons, Input fields, and small Cards use a `0.5rem` (8px) radius.\n- **Large Containers:** Modals and large dashboard panels use `1rem` (16px) for the outer container, with internal elements nested using the standard 8px radius to maintain visual harmony (the \"inner radius = outer radius - padding\" rule).\n- **Interactive Elements:** Checkboxes use a smaller 4px radius to maintain their geometric integrity at small sizes.\n\n## Components\n\n### Buttons\n- **Primary:** Solid `#2563EB` with white text. High contrast, 8px radius.\n- **Secondary:** White background, `#E5E7EB` border, Slate text. Used for most \"soft\" actions.\n- **Ghost:** No border or background until hover. Used for secondary navigation within tables.\n\n### Data Tables\n- **Header:** Sticky, `#F9FAFB` background, `label-md` typography.\n- **Rows:** 48px height, 1px bottom border. Hover state uses a subtle `#F1F5F9` tint.\n- **Cell Content:** Use `body-sm` for secondary data and `body-md` (Medium weight) for primary candidate names.\n\n### Badges & Chips\n- **AI Match Badges:** Small, caps-lock `label-sm`. Use a \"Subtle\" style: light background tint (10% opacity of status color) with high-contrast text of the same hue.\n- **Tagging:** Neutral gray chips for skills (e.g., \"React\", \"Python\") to avoid visual competition with status indicators.\n\n### Input Fields\n- **Default:** 1px border `#D1D5DB`, 8px radius. Focus state uses a `primary_color` border and a soft blue outer glow.\n- **Search:** Persistent search bar in the header with a leading magnifying glass icon and a `cmd+K` kbd shortcut indicator.\n\n### Score Visualization\n- **Match Score:** A circular progress indicator or a 100-point bold number. Use semantic coloring based on the Match Levels defined in the Color section.",
+  "colorVariant": "FIDELITY",
+  "overridePrimaryColor": "#2563eb",
+  "overrideSecondaryColor": "#64748b",
+  "overrideTertiaryColor": "#f1f5f9",
+  "overrideNeutralColor": "#1f2937",
+  "spacingScale": 2,
+  "typography": {
+    "body-sm": {
+      "fontFamily": "Inter",
+      "fontSize": "13px",
+      "fontWeight": "400",
+      "lineHeight": "18px"
+    },
+    "label-md": {
+      "fontFamily": "Inter",
+      "fontSize": "12px",
+      "fontWeight": "600",
+      "lineHeight": "16px",
+      "letterSpacing": "0.05em"
+    },
+    "label-sm": {
+      "fontFamily": "Inter",
+      "fontSize": "11px",
+      "fontWeight": "500",
+      "lineHeight": "14px"
+    },
+    "headline-lg": {
+      "fontFamily": "Inter",
+      "fontSize": "24px",
+      "fontWeight": "600",
+      "lineHeight": "32px",
+      "letterSpacing": "-0.01em"
+    },
+    "headline-xl": {
+      "fontFamily": "Inter",
+      "fontSize": "36px",
+      "fontWeight": "700",
+      "lineHeight": "44px",
+      "letterSpacing": "-0.02em"
+    },
+    "body-lg": {
+      "fontFamily": "Inter",
+      "fontSize": "16px",
+      "fontWeight": "400",
+      "lineHeight": "24px"
+    },
+    "headline-md": {
+      "fontFamily": "Inter",
+      "fontSize": "20px",
+      "fontWeight": "600",
+      "lineHeight": "28px"
+    },
+    "mono-sm": {
+      "fontFamily": "JetBrains Mono",
+      "fontSize": "12px",
+      "fontWeight": "400",
+      "lineHeight": "16px"
+    },
+    "body-md": {
+      "fontFamily": "Inter",
+      "fontSize": "14px",
+      "fontWeight": "400",
+      "lineHeight": "20px"
+    }
+  },
+  "spacing": {
+    "base": "8px",
+    "gutter": "16px",
+    "md": "16px",
+    "xxl": "48px",
+    "container-max": "1280px",
+    "xs": "4px",
+    "lg": "24px",
+    "xl": "32px",
+    "sm": "8px"
+  },
+  "headlineFontFamily": "Inter",
+  "bodyFontFamily": "Inter",
+  "labelFontFamily": "Inter"
+}
