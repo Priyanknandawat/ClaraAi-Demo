@@ -361,17 +361,36 @@ function getMockScreeningResult(
   }
 }
 
+function sanitizeString(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // remove control characters
+    .replace(/\\/g, "\\\\") // escape backslashes
+    .replace(/"/g, '\\"') // escape double quotes
+    .replace(/\r?\n|\r/g, " ") // replace line breaks with spaces
+    .replace(/[;{}|[\]]/g, "") // remove characters that can disrupt JSON schema parsing
+    .trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const name = formData.get("name") as string | null;
-    const email = formData.get("email") as string | null;
-    const phone = formData.get("phone") as string | null;
-    const address = formData.get("address") as string | null;
-    const age = formData.get("age") as string | null;
-    const currentLocation = formData.get("currentLocation") as string | null;
+    const rawName = formData.get("name") as string | null;
+    const rawEmail = formData.get("email") as string | null;
+    const rawPhone = formData.get("phone") as string | null;
+    const rawAddress = formData.get("address") as string | null;
+    const rawAge = formData.get("age") as string | null;
+    const rawCurrentLocation = formData.get("currentLocation") as string | null;
     const jobOpeningId = formData.get("jobOpeningId") as string | null;
+
+    // Sanitize parameters
+    const name = sanitizeString(rawName || "");
+    const email = sanitizeString(rawEmail || "");
+    const phone = sanitizeString(rawPhone || "");
+    const address = sanitizeString(rawAddress || "");
+    const age = sanitizeString(rawAge || "");
+    const currentLocation = sanitizeString(rawCurrentLocation || "");
 
     // Validate inputs
     if (!file || !name || !email || !jobOpeningId) {
@@ -403,6 +422,12 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      // Sanitize extracted resume text for JSON compatibility
+      resumeText = resumeText
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .trim();
     } catch (parseError: any) {
       return NextResponse.json(
         { error: `Failed to parse DOCX file: ${parseError.message}` },

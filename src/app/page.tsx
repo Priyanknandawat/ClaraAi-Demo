@@ -167,6 +167,14 @@ export default function ClaraAiPlatform() {
   const [tempApiKey, setTempApiKey] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [formErrors, setFormErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    age?: string;
+  }>({});
+
   // Search & Filter states for Screenings table
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterJobId, setFilterJobId] = useState<string>("all");
@@ -223,25 +231,85 @@ export default function ClaraAiPlatform() {
   };
 
   // Form Validation
+  const validateField = (fieldName: string, value: string) => {
+    const errors = { ...formErrors };
+
+    if (fieldName === "name") {
+      const nameRegex = /^[A-Za-z\s.'-]{2,50}$/;
+      if (!value.trim()) {
+        errors.name = "Name is required.";
+      } else if (!nameRegex.test(value)) {
+        errors.name = "Invalid name. Use only letters, spaces, dots, hyphens, or single quotes. No commas.";
+      } else {
+        delete errors.name;
+      }
+    }
+
+    if (fieldName === "email") {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!value.trim()) {
+        errors.email = "Email is required.";
+      } else if (!emailRegex.test(value)) {
+        errors.email = "Please enter a valid email address (e.g. name@example.com).";
+      } else {
+        delete errors.email;
+      }
+    }
+
+    if (fieldName === "phone") {
+      const phoneRegex = /^\+?[0-9\s-]{6,20}$/;
+      if (!value.trim()) {
+        errors.phone = "Phone is required.";
+      } else if (!phoneRegex.test(value)) {
+        errors.phone = "Invalid phone number. Use only digits, spaces, hyphens, and optional +.";
+      } else {
+        delete errors.phone;
+      }
+    }
+
+    if (fieldName === "currentLocation") {
+      const locationRegex = /^[A-Za-z0-9\s,.-]{2,100}$/;
+      if (!value.trim()) {
+        errors.location = "Location is required.";
+      } else if (!locationRegex.test(value)) {
+        errors.location = "Invalid location formatting. Use only letters, digits, spaces, commas, and hyphens.";
+      } else {
+        delete errors.location;
+      }
+    }
+
+    if (fieldName === "age") {
+      const ageNum = Number(value);
+      if (!value) {
+        errors.age = "Age is required.";
+      } else if (isNaN(ageNum) || ageNum < 18 || ageNum > 100) {
+        errors.age = "Age must be a number between 18 and 100.";
+      } else {
+        delete errors.age;
+      }
+    }
+
+    setFormErrors(errors);
+  };
+
   const isFormValid = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const isAgeValid = !isNaN(Number(form.age)) && Number(form.age) > 0;
-    
     return (
       form.name.trim() !== "" &&
-      emailRegex.test(form.email) &&
-      form.phone.trim().length >= 6 &&
+      form.email.trim() !== "" &&
+      form.phone.trim() !== "" &&
       form.address.trim() !== "" &&
-      isAgeValid &&
+      form.age.trim() !== "" &&
       form.currentLocation.trim() !== "" &&
       selectedJobId !== "" &&
-      resumeFile !== null
+      resumeFile !== null &&
+      Object.keys(formErrors).length === 0
     );
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+    validateField(name, value);
   };
 
   const handleJobInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -1044,6 +1112,7 @@ export default function ClaraAiPlatform() {
                         required
                         className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       />
+                      {formErrors.name && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.name}</span>}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-slate-700">Email Address</label>
@@ -1056,6 +1125,7 @@ export default function ClaraAiPlatform() {
                         required
                         className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       />
+                      {formErrors.email && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.email}</span>}
                     </div>
                   </div>
 
@@ -1071,6 +1141,7 @@ export default function ClaraAiPlatform() {
                         required
                         className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       />
+                      {formErrors.phone && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.phone}</span>}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-slate-700">Current Location</label>
@@ -1083,6 +1154,7 @@ export default function ClaraAiPlatform() {
                         required
                         className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       />
+                      {formErrors.location && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.location}</span>}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-slate-700">Age</label>
@@ -1096,6 +1168,7 @@ export default function ClaraAiPlatform() {
                         min="1"
                         className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       />
+                      {formErrors.age && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.age}</span>}
                     </div>
                   </div>
 
