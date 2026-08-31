@@ -143,8 +143,8 @@ const defaultMockScreenings: SavedScreening[] = [
 ];
 
 export default function ClaraAiPlatform() {
-  // Navigation: 'dashboard' | 'screenings' | 'screen' | 'jobs' | 'candidates' | 'settings'
-  const [activeTab, setActiveTab] = useState<"dashboard" | "screenings" | "screen" | "jobs" | "candidates" | "settings">("dashboard");
+  // Navigation: 'landing' | 'dashboard' | 'screenings' | 'screen' | 'jobs' | 'candidates' | 'settings'
+  const [activeTab, setActiveTab] = useState<"landing" | "dashboard" | "screenings" | "screen" | "jobs" | "candidates" | "settings">("landing");
   const [screenings, setScreenings] = useState<SavedScreening[]>([]);
   const [jobOpeningsList, setJobOpeningsList] = useState<JobOpening[]>(defaultJobOpenings);
   const [selectedScreeningId, setSelectedScreeningId] = useState<string | null>(null);
@@ -611,7 +611,7 @@ export default function ClaraAiPlatform() {
       {/* Header */}
       <header className="border-b border-slate-200 bg-white sticky top-0 z-50 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="mx-auto max-w-7xl px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="cursor-pointer" onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}>
+          <div className="cursor-pointer" onClick={() => { setActiveTab("landing"); setSelectedScreeningId(null); }}>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               <span className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-black">C</span>
               ClaraScreen <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100 font-semibold tracking-normal normal-case">Enterprise AI</span>
@@ -619,6 +619,12 @@ export default function ClaraAiPlatform() {
             <p className="text-xs text-slate-500 mt-0.5">High-fidelity candidate matching and recruitment dashboard.</p>
           </div>
           <nav className="flex items-center gap-6 text-xs font-semibold text-slate-500">
+            <button 
+              onClick={() => { setActiveTab("landing"); setSelectedScreeningId(null); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "landing" ? "text-blue-600 font-bold" : ""}`}
+            >
+              Home
+            </button>
             <button 
               onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}
               className={`hover:text-slate-950 transition-colors ${activeTab === "dashboard" ? "text-blue-600 font-bold" : ""}`}
@@ -661,7 +667,99 @@ export default function ClaraAiPlatform() {
 
       {/* Main Container */}
       <main className="mx-auto max-w-7xl px-6 py-8">
-        
+
+        {/* TAB 0: LANDING PAGE */}
+        {activeTab === "landing" && (
+          <div className="animate-fadeIn">
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-8 shadow-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-8 items-center">
+                <div className="flex flex-col gap-6">
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700">
+                    Recruitment Intelligence
+                  </span>
+                  <div className="flex flex-col gap-3">
+                    <h2 className="text-4xl font-black tracking-tight text-slate-950">Screen smarter. Move faster.</h2>
+                    <p className="max-w-xl text-sm leading-6 text-slate-600">
+                      ClaraScreen helps recruiters compare resumes against job requirements, surface evidence-backed fit, and keep candidate evaluation conversations structured and fair.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => { setActiveTab("screen"); resetFormWorkflow(); }}
+                      className="rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
+                    >
+                      Start Screening
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("dashboard")}
+                      className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                    >
+                      View Dashboard
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Pipeline Snapshot</p>
+                      <h3 className="mt-1 text-lg font-bold text-slate-900">This week</h3>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 border border-emerald-100">
+                      +12% flow
+                    </span>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-400">Total evaluated</p>
+                        <p className="mt-1 text-lg font-extrabold text-slate-900">{screenings.length}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-400">Avg fit</p>
+                        <p className="mt-1 text-base font-bold text-blue-700">{getAverageScore()}%</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {jobOpeningsList.slice(0, 3).map((job) => (
+                        <div key={job.id} className="flex items-center justify-between border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-900">{job.title}</p>
+                            <p className="text-[10px] text-slate-500">{job.company}</p>
+                          </div>
+                          <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                            {screenings.filter(s => s.jobId === job.id).length} screened
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-lg text-blue-700">📄</div>
+                <h3 className="text-sm font-bold text-slate-900">Resume-based review</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Upload a DOCX resume, extract the raw text, and evaluate it against the target role using a structured scoring model.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-lg text-emerald-700">✓</div>
+                <h3 className="text-sm font-bold text-slate-900">Evidence-led screening</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Focus on concrete strengths, role-fit gaps, and recruiter questions that are grounded in the actual resume wording.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-lg text-violet-700">⚡</div>
+                <h3 className="text-sm font-bold text-slate-900">Fast review loop</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Review a candidate in minutes, keep screening history organized, and move quickly to the next interviews.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: DASHBOARD VIEW */}
         {activeTab === "dashboard" && (
           <div className="flex flex-col gap-8 animate-fadeIn">
@@ -800,16 +898,6 @@ export default function ClaraAiPlatform() {
                   </div>
                 </div>
                 
-                {/* Database Connection Info panel */}
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex flex-col gap-2">
-                  <span className="text-xs font-bold text-blue-800 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Database Connection Status
-                  </span>
-                  <p className="text-[10px] text-blue-600 leading-relaxed">
-                    If Vercel's `DATABASE_URL` is set, listings automatically read/write to your live Postgres database. Otherwise, the app falls back to secure localStorage.
-                  </p>
-                </div>
               </div>
 
             </div>
@@ -1404,19 +1492,6 @@ export default function ClaraAiPlatform() {
                     </div>
                   </div>
                 </div>
-
-                {/* API Key Info */}
-                {tempApiKey.trim() === "" ? (
-                  <div className="p-3 rounded bg-emerald-50 border border-emerald-100 text-[10px] text-emerald-800 leading-normal flex items-start gap-2">
-                    <span>✅</span>
-                    <span>The server will use the environment API key (<code className="font-mono font-bold">LLM_API_KEY</code>) configured in your Vercel/local environment. No additional setup needed.</span>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded bg-blue-50 border border-blue-100 text-[10px] text-blue-800 leading-normal flex items-start gap-2">
-                    <span>🔑</span>
-                    <span>Using your personal API key override from Settings for this screening request.</span>
-                  </div>
-                )}
 
                 {/* Actions */}
                 <div className="flex gap-3 mt-2">
