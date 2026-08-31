@@ -164,15 +164,14 @@ async function callGroqAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  // Dynamically query available models for this specific Groq key
   let candidateModels = [
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "groq/compound",
     "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
     "llama-3.1-8b-instant",
-    "llama3-70b-8192",
-    "llama3-8b-8192",
-    "gemma2-9b-it",
-    "mixtral-8x7b-32768"
+    "llama3-70b-8192"
   ];
 
   try {
@@ -356,32 +355,32 @@ ${resumeText}`;
   return parseJsonSafely(rawContent);
 }
 
-// Simulated / Fallback scoring
+// Simulated / Fallback scoring (role-aware)
 function getMockScreeningResult(
-  jobId: string,
+  job: any,
   candidateName: string,
   resumeText: string
 ): any {
-  const hasExcel = /excel|sheet/i.test(resumeText);
-  const hasMarketing = /marketing|social|content/i.test(resumeText);
-  
-  if (jobId === "opening-a") {
-    return {
-      match_score: hasExcel ? 82 : 68,
-      overall_fit: `The candidate ${candidateName} shows decent alignment for the Founders Office Associate position.`,
-      strong_matches: [`Has relevant consulting background.`],
-      gaps_and_questions: [{ gap: "Planning details missing.", question: "How do you manage risks?" }],
-      isMock: true
-    };
-  } else {
-    return {
-      match_score: hasMarketing ? 85 : 65,
-      overall_fit: `The candidate ${candidateName} demonstrates a strong background in content strategy and team leadership.`,
-      strong_matches: [`5+ years experience.`],
-      gaps_and_questions: [{ gap: "SEO experience unclear.", question: "What SEO strategies do you use?" }],
-      isMock: true
-    };
-  }
+  const title = job?.title || "Target Position";
+  const lines = resumeText.split("\n").map(l => l.trim()).filter(l => l.length > 10);
+  const sampleHighlights = lines.slice(0, 3).map(l => l.length > 90 ? l.slice(0, 90) + "..." : l);
+
+  const strong_matches = sampleHighlights.length > 0
+    ? sampleHighlights
+    : [`Demonstrated relevant domain knowledge aligned with ${title}.`];
+
+  return {
+    match_score: 78,
+    overall_fit: `Candidate ${candidateName} demonstrates practical experience and foundational competency aligned with the ${title} requisition. Key accomplishments reflect relevant technical aptitude and structured execution.`,
+    strong_matches,
+    gaps_and_questions: [
+      {
+        gap: `Specific depth in specialized tools and execution frameworks for ${title} requires direct verification.`,
+        question: `Can you walk us through a recent end-to-end project where you applied your core skills under tight deadlines?`
+      }
+    ],
+    isMock: true
+  };
 }
 
 function cleanInputString(str: string): string {
@@ -518,7 +517,7 @@ Skills: ${(job.skills || []).map((s) => s.items ? s.items.join(", ") : "").filte
     }
 
     if (candidateProviders.length === 0) {
-      const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
+      const mockResult = getMockScreeningResult(job, name, resumeText);
       const screeningId = `scr-${Date.now()}`;
       
       if (sql) {
@@ -554,7 +553,7 @@ Skills: ${(job.skills || []).map((s) => s.items ? s.items.join(", ") : "").filte
     }
 
     if (!evaluation) {
-      const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
+      const mockResult = getMockScreeningResult(job, name, resumeText);
       const warningMsg = `LLM screening failed (${lastProviderError?.message || "Unknown error"}). Showing simulated result instead.`;
       const screeningId = `scr-${Date.now()}`;
       
