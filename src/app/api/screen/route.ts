@@ -139,19 +139,19 @@ RULES:
 6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
 7. Return a structured JSON response matching the required shape.
 
-Required JSON Output Format:
+The response must be valid JSON only. Do not include any text before or after the JSON. Do not wrap in markdown code blocks.
+
+Example JSON output structure:
 {
-  "match_score": <number 0-100 based on alignment with job requirements>,
-  "overall_fit": "<2-4 sentences explaining how well the candidate aligns with the role, highlighting key experiences>",
+  "match_score": 85,
+  "overall_fit": "The candidate has strong alignment with the role based on their technical experience...",
   "strong_matches": [
-    "<Concrete strength 1 with specific resume evidence>",
-    "<Concrete strength 2 with specific resume evidence>",
-    "<Concrete strength 3 with specific resume evidence>"
+    "Candidate has 3 years of data analysis experience using Excel, matching the data tool requirement."
   ],
   "gaps_and_questions": [
     {
-      "gap": "<Uncertainty or missing evidence in resume>",
-      "question": "<Specific, actionable recruiter follow-up question about this gap>"
+      "gap": "No explicit mention of experience leading client presentations.",
+      "question": "Can you walk us through a time you presented data findings to an external client?"
     }
   ]
 }`;
@@ -241,19 +241,19 @@ RULES:
 6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
 7. Return a structured JSON response matching the required shape.
 
-Required JSON Output Format:
+The response must be valid JSON only. Do not include any text before or after the JSON. Do not wrap in markdown code blocks.
+
+Example JSON output structure:
 {
-  "match_score": <number 0-100 based on alignment with job requirements>,
-  "overall_fit": "<2-4 sentences explaining how well the candidate aligns with the role, highlighting key experiences>",
+  "match_score": 85,
+  "overall_fit": "The candidate has strong alignment with the role based on their technical experience...",
   "strong_matches": [
-    "<Concrete strength 1 with specific resume evidence>",
-    "<Concrete strength 2 with specific resume evidence>",
-    "<Concrete strength 3 with specific resume evidence>"
+    "Candidate has 3 years of data analysis experience using Excel, matching the data tool requirement."
   ],
   "gaps_and_questions": [
     {
-      "gap": "<Uncertainty or missing evidence in resume>",
-      "question": "<Specific, actionable recruiter follow-up question about this gap>"
+      "gap": "No explicit mention of experience leading client presentations.",
+      "question": "Can you walk us through a time you presented data findings to an external client?"
     }
   ]
 }`;
