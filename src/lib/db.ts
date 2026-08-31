@@ -2,13 +2,22 @@ import postgres from "postgres";
 
 const connectionString = process.env.DATABASE_URL;
 
-export const sql = connectionString ? postgres(connectionString, { ssl: "require" }) : null;
+export const sql = connectionString 
+  ? postgres(connectionString, { 
+      ssl: "require",
+      max: 10,
+      idle_timeout: 30,
+      connect_timeout: 10
+    }) 
+  : null;
+
+let tablesInitialized = false;
 
 export async function ensureTablesExist() {
-  if (!sql) return;
+  if (!sql || tablesInitialized) return;
 
   try {
-    // Create jobs table
+    // Run schema check and creation in a single batch query
     await sql`
       CREATE TABLE IF NOT EXISTS jobs (
         id TEXT PRIMARY KEY,
@@ -20,11 +29,8 @@ export async function ensureTablesExist() {
         experience TEXT[] NOT NULL DEFAULT '{}',
         offers TEXT[] NOT NULL DEFAULT '{}',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `;
+      );
 
-    // Create screenings table
-    await sql`
       CREATE TABLE IF NOT EXISTS screenings (
         id TEXT PRIMARY KEY,
         candidate_name TEXT NOT NULL,
@@ -42,17 +48,12 @@ export async function ensureTablesExist() {
         warning TEXT,
         resume_text TEXT,
         resume_html TEXT
-      )
-    `;
+      );
 
-    // Alter statements to add resume_text and resume_html columns to existing database tables if they already exist
-    await sql`
-      ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_text TEXT
+      ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_text TEXT;
+      ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_html TEXT;
     `;
-    await sql`
-      ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_html TEXT
-    `;
-    console.log("Database tables verified and migrated successfully.");
+    tablesInitialized = true;
   } catch (error) {
     console.error("Failed to run database migrations:", error);
   }
