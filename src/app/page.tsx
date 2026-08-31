@@ -25,6 +25,7 @@ interface SavedScreening {
   gapsAndQuestions: GapQuestion[];
   screenedAt: string;
   warning?: string;
+  resumeText?: string;
 }
 
 interface CandidateForm {
@@ -407,7 +408,8 @@ export default function ClaraAiPlatform() {
         strongMatches: data.strong_matches || [],
         gapsAndQuestions: data.gaps_and_questions || [],
         screenedAt: new Date().toISOString(),
-        warning: data.warning
+        warning: data.warning,
+        resumeText: data.resumeText || undefined
       };
 
       const updated = [newScreening, ...screenings];
@@ -933,6 +935,33 @@ export default function ClaraAiPlatform() {
                   </div>
 
                 </div>
+
+                {/* Resume Text Viewer - Full Width below the grid */}
+                {activeScreening.resumeText && (
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col gap-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <h3 className="text-sm font-bold text-slate-950">📄 Parsed Resume Content</h3>
+                      <span className="text-[9px] text-slate-400 font-medium">
+                        {activeScreening.resumeText.split(/\s+/).length} words extracted
+                      </span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 max-h-72 overflow-y-auto">
+                      <pre className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-sans">
+                        {activeScreening.resumeText}
+                      </pre>
+                    </div>
+                    <p className="text-[9px] text-slate-400 italic">
+                      This is the raw text extracted from the uploaded .docx resume file that was used for the AI evaluation.
+                    </p>
+                  </div>
+                )}
+
+                {!activeScreening.resumeText && (
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
+                    <p className="text-xs text-slate-400 italic">Resume text not available for this screening. Resume storage was added in a recent update — new screenings will include the parsed resume content.</p>
+                  </div>
+                )}
+
               </div>
             ) : (
               /* SCREENINGS TABLE HISTORY VIEW */
@@ -1102,7 +1131,7 @@ export default function ClaraAiPlatform() {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Full Name</label>
+                      <label className="text-xs font-semibold text-slate-700">Full Name <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         name="name" 
@@ -1115,7 +1144,7 @@ export default function ClaraAiPlatform() {
                       {formErrors.name && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.name}</span>}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Email Address</label>
+                      <label className="text-xs font-semibold text-slate-700">Email Address <span className="text-rose-500">*</span></label>
                       <input 
                         type="email" 
                         name="email" 
@@ -1131,7 +1160,7 @@ export default function ClaraAiPlatform() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Phone Number</label>
+                      <label className="text-xs font-semibold text-slate-700">Phone Number <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         name="phone" 
@@ -1144,7 +1173,7 @@ export default function ClaraAiPlatform() {
                       {formErrors.phone && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.phone}</span>}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Current Location</label>
+                      <label className="text-xs font-semibold text-slate-700">Current Location <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         name="currentLocation" 
@@ -1157,7 +1186,7 @@ export default function ClaraAiPlatform() {
                       {formErrors.location && <span className="text-[10px] text-rose-500 font-semibold mt-0.5">{formErrors.location}</span>}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-slate-700">Age</label>
+                      <label className="text-xs font-semibold text-slate-700">Age <span className="text-rose-500">*</span></label>
                       <input 
                         type="number" 
                         name="age" 
@@ -1173,7 +1202,7 @@ export default function ClaraAiPlatform() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Residential Address</label>
+                    <label className="text-xs font-semibold text-slate-700">Residential Address <span className="text-rose-500">*</span></label>
                     <input 
                       type="text" 
                       name="address" 
@@ -1191,7 +1220,7 @@ export default function ClaraAiPlatform() {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">2. Upload Candidate Resume</h3>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-slate-700">Resume File (.docx only)</label>
+                    <label className="text-xs font-semibold text-slate-700">Resume File (.docx only) <span className="text-rose-500">*</span></label>
                     <div 
                       onDragOver={handleDragOver}
                       onDrop={handleDrop}
@@ -1240,7 +1269,7 @@ export default function ClaraAiPlatform() {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">3. Target Job Opening</h3>
                   
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Select Job Opening</label>
+                    <label className="text-xs font-semibold text-slate-700">Select Job Opening <span className="text-rose-500">*</span></label>
                     <select 
                       value={selectedJobId} 
                       onChange={(e) => setSelectedJobId(e.target.value)}

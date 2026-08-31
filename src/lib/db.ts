@@ -39,10 +39,16 @@ export async function ensureTablesExist() {
         strong_matches TEXT[] NOT NULL DEFAULT '{}',
         gaps_and_questions JSONB NOT NULL DEFAULT '[]',
         screened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        warning TEXT
+        warning TEXT,
+        resume_text TEXT
       )
     `;
-    console.log("Database tables verified successfully.");
+
+    // Alter statement to add resume_text column to existing database tables if they already exist
+    await sql`
+      ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_text TEXT
+    `;
+    console.log("Database tables verified and migrated successfully.");
   } catch (error) {
     console.error("Failed to run database migrations:", error);
   }

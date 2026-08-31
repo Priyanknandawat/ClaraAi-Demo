@@ -511,7 +511,7 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
           await ensureTablesExist();
           const screeningId = `scr-${Date.now()}`;
           await sql`
-            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning)
+            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text)
             VALUES (
               ${screeningId},
               ${name},
@@ -525,10 +525,12 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
               ${evaluation.overall_fit},
               ${evaluation.strong_matches || []},
               ${JSON.stringify(evaluation.gaps_and_questions || [])},
-              ${evaluation.warning || null}
+              ${evaluation.warning || null},
+              ${resumeText}
             )
           `;
           evaluation.id = screeningId;
+          evaluation.resumeText = resumeText;
         } catch (dbError) {
           console.error("Failed to save screening to database:", dbError);
         }
@@ -548,7 +550,7 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
           const screeningId = `scr-${Date.now()}`;
           const warningMsg = `LLM screening failed (${llmError.message}). Showing simulated result instead.`;
           await sql`
-            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning)
+            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text)
             VALUES (
               ${screeningId},
               ${name},
@@ -562,11 +564,13 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
               ${mockResult.overall_fit},
               ${mockResult.strong_matches || []},
               ${JSON.stringify(mockResult.gaps_and_questions || [])},
-              ${warningMsg}
+              ${warningMsg},
+              ${resumeText}
             )
           `;
           mockResult.id = screeningId;
           mockResult.warning = warningMsg;
+          mockResult.resumeText = resumeText;
         } catch (dbError) {
           console.error("Failed to save fallback screening to database:", dbError);
         }
@@ -606,7 +610,8 @@ export async function GET() {
         strongMatches: s.strong_matches || [],
         gapsAndQuestions: typeof s.gaps_and_questions === "string" ? JSON.parse(s.gaps_and_questions) : s.gaps_and_questions,
         screenedAt: s.screened_at,
-        warning: s.warning || undefined
+        warning: s.warning || undefined,
+        resumeText: s.resume_text || undefined
       }));
 
       return NextResponse.json(formatted);
