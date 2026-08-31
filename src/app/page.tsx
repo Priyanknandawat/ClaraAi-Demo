@@ -1355,11 +1355,16 @@ export default function ClaraAiPlatform() {
                   </div>
                 </div>
 
-                {/* API Key Hint if none set */}
-                {tempApiKey.trim() === "" && (
+                {/* API Key Info */}
+                {tempApiKey.trim() === "" ? (
+                  <div className="p-3 rounded bg-emerald-50 border border-emerald-100 text-[10px] text-emerald-800 leading-normal flex items-start gap-2">
+                    <span>✅</span>
+                    <span>The server will use the environment API key (<code className="font-mono font-bold">LLM_API_KEY</code>) configured in your Vercel/local environment. No additional setup needed.</span>
+                  </div>
+                ) : (
                   <div className="p-3 rounded bg-blue-50 border border-blue-100 text-[10px] text-blue-800 leading-normal flex items-start gap-2">
-                    <span>💡</span>
-                    <span>No personal API key configured in Settings. The server will run in Simulated/Mock Mode. To run live LLM analysis, configure your key in settings.</span>
+                    <span>🔑</span>
+                    <span>Using your personal API key override from Settings for this screening request.</span>
                   </div>
                 )}
 
