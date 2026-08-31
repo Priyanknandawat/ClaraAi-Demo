@@ -180,6 +180,7 @@ ${resumeText}`;
       ],
       response_format: { type: "json_object" },
       temperature: 0.1,
+      max_tokens: 2048,
     }),
   });
 
@@ -282,6 +283,7 @@ ${resumeText}`;
       ],
       response_format: { type: "json_object" },
       temperature: 0.1,
+      max_tokens: 2048,
     }),
   });
 
