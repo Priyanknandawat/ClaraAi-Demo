@@ -177,8 +177,6 @@ export default function ClaraAiPlatform() {
     age?: string;
   }>({});
 
-  // Resume drawer state
-  const [resumeDrawerOpen, setResumeDrawerOpen] = useState<boolean>(false);
 
   // Search & Filter states for Screenings table
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -440,6 +438,52 @@ export default function ClaraAiPlatform() {
     setFileError(null);
     setFormStep("form");
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDownloadResume = (screening: SavedScreening) => {
+    if (screening.resumeHtml) {
+      const wordContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${screening.candidateName} - Resume</title>
+  <style>
+    body { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1e293b; margin: 1in; }
+    h1, h2, h3, h4 { color: #0f172a; font-weight: bold; margin-top: 14pt; margin-bottom: 4pt; }
+    h1 { font-size: 18pt; border-bottom: 2pt solid #2563eb; padding-bottom: 4pt; }
+    h2 { font-size: 14pt; border-bottom: 1pt solid #94a3b8; padding-bottom: 2pt; }
+    p { margin-bottom: 6pt; }
+    ul, ol { margin-top: 3pt; margin-bottom: 6pt; padding-left: 20pt; }
+    table { width: 100%; border-collapse: collapse; margin: 10pt 0; }
+    th, td { border: 1pt solid #cbd5e1; padding: 6pt 8pt; text-align: left; }
+    th { background-color: #f1f5f9; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  ${screening.resumeHtml}
+</body>
+</html>`;
+      const blob = new Blob([wordContent], { type: "application/msword;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${screening.candidateName.replace(/[^a-zA-Z0-9]/g, "_")}_Resume.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } else if (screening.resumeText) {
+      const blob = new Blob([screening.resumeText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${screening.candidateName.replace(/[^a-zA-Z0-9]/g, "_")}_Resume.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   // Add Job Opening Action
@@ -984,18 +1028,21 @@ export default function ClaraAiPlatform() {
               <div className="flex flex-col gap-6">
                 <div className="flex items-center justify-between mb-4">
                   <button
-                    onClick={() => { setSelectedScreeningId(null); setResumeDrawerOpen(false); }}
+                    onClick={() => setSelectedScreeningId(null)}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
                   >
                     ← Back to all screenings
                   </button>
-                  {activeScreening.resumeText && (
+                  {(activeScreening.resumeHtml || activeScreening.resumeText) && (
                     <button
-                      onClick={() => setResumeDrawerOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold rounded-lg transition-all shadow-sm"
+                      onClick={() => handleDownloadResume(activeScreening)}
+                      className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z"/></svg>
-                      View Resume
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+                        <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                      </svg>
+                      Download Resume
                     </button>
                   )}
                 </div>
@@ -1109,113 +1156,7 @@ export default function ClaraAiPlatform() {
 
                 </div>
 
-                {/* Resume Slide-Out Drawer */}
-                {resumeDrawerOpen && (activeScreening.resumeHtml || activeScreening.resumeText) && (
-                  <>
-                    <div 
-                      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] transition-opacity"
-                      onClick={() => setResumeDrawerOpen(false)}
-                    />
 
-                    <div className="fixed top-0 right-0 h-full w-full max-w-5xl bg-slate-100 shadow-[0_25px_80px_rgba(15,23,42,0.3)] z-[70] flex flex-col animate-slideInRight">
-                      {/* Drawer Header */}
-                      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0 shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-5 h-5"><path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z"/></svg>
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                              Resume Document
-                              <span className="text-[10px] font-normal px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
-                                Word Preview
-                              </span>
-                            </h3>
-                            <p className="text-xs text-slate-500 font-medium">{activeScreening.candidateName} • {activeScreening.jobTitle}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => window.print()}
-                            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0113.25 8H6.75A1.75 1.75 0 015 6.25v-3.5zm1.75.25a.25.25 0 00-.25.25v3a.25.25 0 00.25.25h6.5a.25.25 0 00.25-.25v-3a.25.25 0 00-.25-.25h-6.5z" clipRule="evenodd"/><path d="M1 9.75C1 8.784 1.784 8 2.75 8h14.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0117.25 17H15v-3.5A1.75 1.75 0 0013.25 12H6.75A1.75 1.75 0 005 13.75V17H2.75A1.75 1.75 0 011 15.25v-5.5z"/><path d="M6.5 13.75c0-.138.112-.25.25-.25h6.5c.138 0 .25.112.25.25v4.5a.25.25 0 01-.25.25h-6.5a.25.25 0 01-.25-.25v-4.5z"/></svg>
-                            Print
-                          </button>
-                          <button
-                            onClick={() => setResumeDrawerOpen(false)}
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors font-bold text-sm"
-                            aria-label="Close resume drawer"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Drawer Body - Document Paper layout */}
-                      <div className="flex-1 overflow-y-auto bg-slate-200/70 p-4 sm:p-8 md:p-12 flex justify-center">
-                        <div className="w-full max-w-4xl bg-white shadow-[0_10px_40px_rgba(0,0,0,0.12),0_1px_3px_rgba(0,0,0,0.06)] rounded-sm border border-slate-300/80 p-8 sm:p-14 md:p-16 min-h-[900px]">
-                          
-                          {/* Rich HTML Word Document (supports embedded images, tables, lists, bold) */}
-                          {activeScreening.resumeHtml ? (
-                            <div
-                              className="word-document-page"
-                              dangerouslySetInnerHTML={{ __html: activeScreening.resumeHtml }}
-                            />
-                          ) : resumePreviewLines.length > 0 ? (
-                            /* Formatted text fallback */
-                            <div className="space-y-6">
-                              <div className="border-b-2 border-slate-900 pb-4">
-                                <h1 className="text-2xl font-bold text-slate-950">
-                                  {activeScreening.candidateName || resumePreviewLines[0]?.text || "Candidate"}
-                                </h1>
-                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                                  {resumePreviewLines
-                                    .filter((line) => line.type === "contact")
-                                    .map((line, idx) => (
-                                      <span key={idx} className="bg-slate-100 px-2.5 py-1 rounded text-slate-800 font-medium">
-                                        {line.text}
-                                      </span>
-                                    ))}
-                                </div>
-                              </div>
-
-                              <div className="space-y-4 text-xs leading-relaxed text-slate-800">
-                                {resumePreviewLines.slice(1).map((line, idx) => {
-                                  if (line.type === "heading") {
-                                    return (
-                                      <h2 key={idx} className="text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mt-6">
-                                        {line.text}
-                                      </h2>
-                                    );
-                                  }
-                                  if (line.type === "bullet") {
-                                    return (
-                                      <div key={idx} className="flex gap-2.5 pl-3">
-                                        <span className="text-blue-600 font-bold">•</span>
-                                        <p className="flex-1">{line.text}</p>
-                                      </div>
-                                    );
-                                  }
-                                  return <p key={idx}>{line.text}</p>;
-                                })}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex min-h-[400px] items-center justify-center text-center">
-                              <div className="max-w-md p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50">
-                                <p className="text-sm font-bold text-slate-800">Resume Content Not Available</p>
-                                <p className="mt-1 text-xs text-slate-500">This candidate record does not contain extractable document text.</p>
-                              </div>
-                            </div>
-                          )}
-
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
 
               </div>
             ) : (
@@ -1319,6 +1260,19 @@ export default function ClaraAiPlatform() {
                                 {new Date(s.screenedAt).toLocaleDateString()}
                               </td>
                               <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                {(s.resumeHtml || s.resumeText) && (
+                                  <button
+                                    onClick={() => handleDownloadResume(s)}
+                                    className="text-slate-600 hover:text-blue-600 mr-4 font-semibold inline-flex items-center gap-1"
+                                    title="Download candidate resume"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                                      <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+                                      <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                                    </svg>
+                                    Download
+                                  </button>
+                                )}
                                 <button 
                                   onClick={() => setSelectedScreeningId(s.id)}
                                   className="text-blue-600 hover:underline mr-4 font-semibold"

@@ -93,7 +93,45 @@ async function callGroqAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  const modelName = "llama-3.3-70b-versatile";
+  // Dynamically query available models for this specific Groq key
+  let candidateModels = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "gemma2-9b-it",
+    "mixtral-8x7b-32768"
+  ];
+
+  try {
+    const listRes = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const availableList: { id: string }[] = data.data || [];
+      const availableIds = availableList.map((m) => m.id);
+      
+      const matched = candidateModels.filter((m) => availableIds.includes(m));
+      if (matched.length > 0) {
+        candidateModels = matched;
+      } else if (availableIds.length > 0) {
+        const chatModels = availableIds.filter(
+          (id) => !id.includes("whisper") && !id.includes("guard") && !id.includes("embed")
+        );
+        if (chatModels.length > 0) {
+          candidateModels = chatModels;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not query Groq models dynamically, will try candidate models", e);
+  }
+
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
   const systemPrompt = `You are an expert recruiter evaluating a candidate against a job description.
@@ -124,45 +162,65 @@ ${jobDescription}
 Candidate Resume:
 ${resumeText}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: modelName,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1,
-    }),
-  });
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+  for (const modelName of candidateModels) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status === 404) {
+          // Model not found for this account/tier, try next model in cascade
+          console.warn(`Groq model ${modelName} returned 404, trying next...`);
+          lastError = new Error(`Groq API error: ${response.status} - ${errorText}`);
+          continue;
+        }
+        throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const rawContent = data.choices?.[0]?.message?.content;
+      if (!rawContent) {
+        throw new Error("Empty response from Groq API");
+      }
+
+      const parsed = parseJsonSafely(rawContent);
+
+      if (
+        typeof parsed.match_score !== "number" ||
+        typeof parsed.overall_fit !== "string" ||
+        !Array.isArray(parsed.strong_matches) ||
+        !Array.isArray(parsed.gaps_and_questions)
+      ) {
+        throw new Error("Groq returned an incomplete JSON structure");
+      }
+
+      return parsed;
+    } catch (err: any) {
+      if (err.message?.includes("404")) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
   }
 
-  const data = await response.json();
-  const rawContent = data.choices?.[0]?.message?.content;
-  if (!rawContent) {
-    throw new Error("Empty response from Groq API");
-  }
-
-  const parsed = parseJsonSafely(rawContent);
-
-  if (
-    typeof parsed.match_score !== "number" ||
-    typeof parsed.overall_fit !== "string" ||
-    !Array.isArray(parsed.strong_matches) ||
-    !Array.isArray(parsed.gaps_and_questions)
-  ) {
-    throw new Error("Groq returned an incomplete JSON structure");
-  }
-
-  return parsed;
+  throw lastError || new Error("No compatible Groq model available for this API key.");
 }
 
 // Abstraction for Grok API calling
