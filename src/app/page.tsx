@@ -186,6 +186,13 @@ export default function ClaraAiPlatform() {
   const [jobApiError, setJobApiError] = useState<string | null>(null);
   const [isJobLoading, setIsJobLoading] = useState<boolean>(false);
 
+  // Edit Job Opening workflow
+  const [editingJob, setEditingJob] = useState<JobOpening | null>(null);
+  const [editJobForm, setEditJobForm] = useState<JobForm>(initialJobForm);
+  const [editJobFormErrors, setEditJobFormErrors] = useState<JobFormErrors>({});
+  const [editJobApiError, setEditJobApiError] = useState<string | null>(null);
+  const [isEditJobLoading, setIsEditJobLoading] = useState<boolean>(false);
+
   // Candidate Portal specific states
   const [candidatePortalJob, setCandidatePortalJob] = useState<JobOpening | null>(null);
   const [candidateForm, setCandidateForm] = useState<CandidateForm>(initialForm);
@@ -206,9 +213,9 @@ export default function ClaraAiPlatform() {
   const [filterJobId, setFilterJobId] = useState<string>("all");
   const [filterFit, setFilterFit] = useState<string>("all");
 
-  // Lock background scroll when modal is open to prevent background text bleed
+  // Lock background scroll when any modal is open to prevent background text bleed
   useEffect(() => {
-    if (candidatePortalJob) {
+    if (candidatePortalJob || editingJob) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -216,7 +223,7 @@ export default function ClaraAiPlatform() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [candidatePortalJob]);
+  }, [candidatePortalJob, editingJob]);
 
   // Load database jobs and screenings on mount (with localStorage fallback)
   useEffect(() => {
@@ -709,6 +716,105 @@ export default function ClaraAiPlatform() {
       setJobApiError(err.message || "Failed to save job opening.");
     } finally {
       setIsJobLoading(false);
+    }
+  };
+
+  // Open Edit Job Modal with pre-filled fields
+  const handleOpenEditJob = (job: JobOpening) => {
+    setEditingJob(job);
+    setEditJobForm({
+      title: job.title,
+      company: job.company,
+      description: job.description,
+      responsibilitiesText: (job.responsibilities || []).join("\n"),
+      experienceText: (job.experience || []).join("\n"),
+      skillsText: (job.skills || []).map(s => (s.items || []).join("\n")).join("\n")
+    });
+    setEditJobFormErrors({});
+    setEditJobApiError(null);
+  };
+
+  // Update Job Opening Action with strict validation
+  const handleUpdateJobOpening = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingJob) return;
+
+    const errors: JobFormErrors = {};
+    if (!editJobForm.title.trim() || editJobForm.title.trim().length < 3) {
+      errors.title = "Position title must be at least 3 characters long.";
+    }
+    if (!editJobForm.company.trim() || editJobForm.company.trim().length < 2) {
+      errors.company = "Company name must be at least 2 characters long.";
+    }
+    if (!editJobForm.description.trim() || editJobForm.description.trim().length < 15) {
+      errors.description = "Role description must be at least 15 characters long.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditJobFormErrors(errors);
+      return;
+    }
+
+    setIsEditJobLoading(true);
+    setEditJobApiError(null);
+
+    const formatList = (text: string) => text.split("\n").map(l => l.trim()).filter(l => l !== "");
+    const responsibilities = formatList(editJobForm.responsibilitiesText);
+    const experience = formatList(editJobForm.experienceText);
+    const skillsList = formatList(editJobForm.skillsText);
+    const skills = [{ category: "Required Core Skills", items: skillsList }];
+
+    const updatedPayload: JobOpening = {
+      id: editingJob.id,
+      title: editJobForm.title.trim(),
+      company: editJobForm.company.trim(),
+      description: editJobForm.description.trim(),
+      responsibilities,
+      skills,
+      experience,
+      offers: editingJob.offers || []
+    };
+
+    try {
+      const response = await fetch("/api/jobs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPayload)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update job opening.");
+      }
+
+      setJobOpeningsList(prev => prev.map(j => j.id === editingJob.id ? { ...updatedPayload, ...data } : j));
+      setEditingJob(null);
+    } catch (err: any) {
+      setEditJobApiError(err.message || "Failed to update job opening.");
+    } finally {
+      setIsEditJobLoading(false);
+    }
+  };
+
+  // Delete Job Opening Action
+  const handleDeleteJobOpening = async (jobId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const targetJob = jobOpeningsList.find(j => j.id === jobId);
+    if (!confirm(`Are you sure you want to delete "${targetJob ? targetJob.title : "this job opening"}"?`)) return;
+
+    try {
+      await fetch(`/api/jobs?id=${jobId}`, { method: "DELETE" });
+    } catch (err) {
+      console.warn("Could not delete from database, removing locally", err);
+    }
+
+    const updated = jobOpeningsList.filter(j => j.id !== jobId);
+    setJobOpeningsList(updated);
+    if (compareJobId === jobId && updated.length > 0) {
+      setCompareJobId(updated[0].id);
+    }
+    if (selectedJobId === jobId) {
+      setSelectedJobId("");
     }
   };
 
@@ -2017,9 +2123,25 @@ export default function ClaraAiPlatform() {
                         <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
                           {job.company}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-semibold">
-                          {screenings.filter(s => s.jobId === job.id || s.jobTitle === job.title).length} Candidates Screened
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-400 font-semibold">
+                            {screenings.filter(s => s.jobId === job.id || s.jobTitle === job.title).length} Screened
+                          </span>
+                          <button
+                            onClick={() => handleOpenEditJob(job)}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-blue-600 transition-colors text-xs font-semibold"
+                            title="Edit job opening"
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteJobOpening(job.id, e)}
+                            className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors text-xs font-semibold"
+                            title="Delete job opening"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
 
                       <h3 className="text-base font-bold text-slate-950">{job.title}</h3>
@@ -2030,7 +2152,7 @@ export default function ClaraAiPlatform() {
                           onClick={() => { setSelectedJobId(job.id); setActiveTab("screen"); }}
                           className="text-xs font-semibold text-blue-600 hover:underline"
                         >
-                          + Screen Candidate for this role →
+                          + Screen Candidate →
                         </button>
                         <button
                           onClick={() => { setCompareJobId(job.id); setActiveTab("compare"); }}
@@ -2401,6 +2523,152 @@ export default function ClaraAiPlatform() {
 
                 </div>
               )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* EDIT JOB OPENING MODAL (ROOT DOM LEVEL WITH Z-9999) */}
+      {editingJob && (
+        <div 
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingJob(null);
+          }}
+        >
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-[0_25px_90px_rgba(0,0,0,0.6)] border border-slate-200 max-h-[88vh] flex flex-col overflow-hidden my-auto relative">
+            
+            {/* Modal Header */}
+            <div className="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <div>
+                <span className="text-xs font-bold text-blue-600">Edit Position</span>
+                <h2 className="text-xl font-bold text-slate-950">{editingJob.title}</h2>
+              </div>
+              <button 
+                onClick={() => setEditingJob(null)}
+                className="w-9 h-9 rounded-full bg-white hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors shadow-sm"
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto flex-1 bg-white">
+              <form onSubmit={handleUpdateJobOpening} className="space-y-4">
+                {editJobApiError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs">
+                    ⚠️ {editJobApiError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Position Title <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editJobForm.title}
+                      onChange={(e) => {
+                        setEditJobForm({ ...editJobForm, title: e.target.value });
+                        if (editJobFormErrors.title) setEditJobFormErrors({ ...editJobFormErrors, title: undefined });
+                      }}
+                      className={`w-full px-3.5 py-2.5 bg-white rounded-xl border text-xs outline-none transition-all ${
+                        editJobFormErrors.title ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                      }`}
+                    />
+                    {editJobFormErrors.title && <p className="text-[10px] text-rose-500 font-medium mt-1">{editJobFormErrors.title}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Company Name <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editJobForm.company}
+                      onChange={(e) => {
+                        setEditJobForm({ ...editJobForm, company: e.target.value });
+                        if (editJobFormErrors.company) setEditJobFormErrors({ ...editJobFormErrors, company: undefined });
+                      }}
+                      className={`w-full px-3.5 py-2.5 bg-white rounded-xl border text-xs outline-none transition-all ${
+                        editJobFormErrors.company ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                      }`}
+                    />
+                    {editJobFormErrors.company && <p className="text-[10px] text-rose-500 font-medium mt-1">{editJobFormErrors.company}</p>}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Role Description <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editJobForm.description}
+                    onChange={(e) => {
+                      setEditJobForm({ ...editJobForm, description: e.target.value });
+                      if (editJobFormErrors.description) setEditJobFormErrors({ ...editJobFormErrors, description: undefined });
+                    }}
+                    className={`w-full px-3.5 py-2.5 bg-white rounded-xl border text-xs outline-none transition-all ${
+                      editJobFormErrors.description ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                    }`}
+                  />
+                  {editJobFormErrors.description && <p className="text-[10px] text-rose-500 font-medium mt-1">{editJobFormErrors.description}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Key Responsibilities (One per line)</label>
+                  <textarea
+                    rows={3}
+                    value={editJobForm.responsibilitiesText}
+                    onChange={(e) => setEditJobForm({ ...editJobForm, responsibilitiesText: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Required Skills (One per line)</label>
+                  <textarea
+                    rows={2}
+                    value={editJobForm.skillsText}
+                    onChange={(e) => setEditJobForm({ ...editJobForm, skillsText: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="pt-3 flex items-center justify-between border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (editingJob) handleDeleteJobOpening(editingJob.id, e);
+                      setEditingJob(null);
+                    }}
+                    className="text-xs font-semibold text-rose-600 hover:text-rose-800"
+                  >
+                    Delete Position
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingJob(null)}
+                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isEditJobLoading}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-md transition-all"
+                    >
+                      {isEditJobLoading ? "Updating..." : "Save Changes"}
+                    </button>
+                  </div>
+                </div>
+              </form>
             </div>
 
           </div>
