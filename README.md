@@ -1,137 +1,123 @@
-# ClaraScreen
+# Clara AI — Enterprise Candidate Intelligence & Screening Platform
 
-ClaraScreen is an AI-assisted recruiting workflow for recruiters who need a cleaner, faster, and more structured way to evaluate candidates against open roles.
-
-The product combines a polished candidate dashboard, a resume upload and screening workflow, and an evidence-based AI review that highlights fit, gaps, and recruiter follow-up questions.
+**Clara AI** is an enterprise-grade recruiting co-pilot and applicant intelligence platform engineered to revolutionize top-of-funnel hiring. Combining deep AI reasoning with an Apple-inspired glassmorphic design system, Clara AI eliminates manual resume triage, extracts role-specific competencies, uncovers hidden candidate gaps, and enables side-by-side comparative decision making.
 
 ---
 
-## Product Overview
+## 🌟 Key Capabilities & Features
 
-ClaraScreen helps recruiters:
-- evaluate a candidate against a target job opening
-- upload a DOCX resume and extract the raw text
-- compare the resume against role requirements
-- review a structured score, fit narrative, strengths, and interview gaps
-- browse prior screenings from a centralized dashboard
-- open the original resume in a side panel for quick review without leaving the reporting screen
+### 1. 👥 Dual-Portal Architecture
+* **Candidate Careers Portal**:
+  * Clean, candidate-facing application experience.
+  * Search, filter, and explore active openings by category (Engineering, Operations, Product, etc.).
+  * Direct modal application workflow with real-time field validation (RFC-compliant email, sanitized phone, numeric age constraints) and `.docx` resume upload.
+* **Recruiter Command Center**:
+  * Unified workspace for talent acquisition teams, founders, and hiring managers.
+  * Instant toggling between Candidate Portal and Recruiter Workspace.
 
-The experience is designed to feel professional and operational rather than chat-based or overly promotional.
+### 2. ⚡ Top-of-Funnel AI Screening Engine
+* **DOCX Document Ingestion**: Server-side parsing and structure extraction using Mammoth.
+* **Evidence-Based Evaluation**:
+  * **Match Score (0–100%)**: Quantitative score based strictly on explicit resume evidence against role criteria.
+  * **Overall Fit Assessment**: Executive recruiter narrative synthesizing candidate strengths and seniority alignment.
+  * **Strong Matches (✓)**: Concrete proof points extracted directly from candidate experience.
+  * **Gaps & High-Yield Interview Questions**: Identifies missing qualifications and formulates exact interview questions for recruiters.
+* **Multi-LLM Cascade**: High-speed inference using **Groq** (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `groq/compound`) and **Google Gemini** with intelligent fallback.
+* **Bias-Free Compliance**: Strict prompting guards against using age, gender, race, or other protected characteristics in scoring.
 
----
+### 3. ⚖️ Side-by-Side Candidate Comparison Matrix
+* Compare 2 or 3 shortlisted candidates for any open position simultaneously.
+* Visual ranking ribbons (🏆 Top Match, 🥈 Runner Up, 🥉 Contender).
+* Direct side-by-side alignment across Match Score, Overall Fit, Key Strengths, and Identified Risks.
+* Executive recommendation summary to guide final interview selections.
 
-## Current UX Flow
+### 4. 💼 Full Requisition & Job Opening Management
+* **Create Requisitions**: Add custom openings with title, company, description, bulleted responsibilities, skills, and experience.
+* **Edit Existing Openings**: Live modal editor to update role criteria with real-time field validation.
+* **Delete Openings & Records**: Requisition removal with Apple-grade frosted confirmation dialogs.
 
-The application includes:
-- a landing screen with a strong entry point for recruiters
-- a dashboard overview for recent evaluations and active roles
-- a screening workflow with candidate details, resume upload, and job selection
-- a review screen before the AI evaluation is triggered
-- detailed screening results with match score, profile summary, strengths, and interview questions
-- a slide-out resume panel that behaves like a document preview without breaking context
-
----
-
-## Tech Stack
-
-- Next.js App Router
-- TypeScript
-- React 19
-- Tailwind CSS v4
-- Mammoth for DOCX parsing
-- PostgreSQL support via the `postgres` library
-- LLM integrations for provider-based screening with graceful fallback to simulated results
-
----
-
-## Architecture
-
-The app is structured around a few clear layers:
-
-### Frontend
-The main app is rendered in [src/app/page.tsx](src/app/page.tsx). It handles:
-- landing page
-- dashboard
-- screenings list and detail view
-- candidate screening form
-- job opening management
-- local browser persistence fallback
-
-### API Routes
-The screening flow is handled by [src/app/api/screen/route.ts](src/app/api/screen/route.ts), which performs:
-- file validation
-- DOCX extraction
-- job lookup
-- LLM call selection
-- fallback mock generation
-- database insert if configured
-
-The job endpoints are served from [src/app/api/jobs/route.ts](src/app/api/jobs/route.ts).
-
-### Data Layer
-Database connection and schema creation live in [src/lib/db.ts](src/lib/db.ts). The code creates `jobs` and `screenings` tables when available and is safe to run even when no database connection is configured.
+### 5. 🎨 Apple-Grade Glassmorphic UI System
+* **Frosted Glass Components**: `backdrop-blur-xl`, delicate border lighting, subtle glow effects, and modern typography.
+* **Apple Select Picklists**: Replaced default browser select inputs with sleek rounded-2xl picklist controls featuring custom vector chevrons.
+* **In-App Modal Confirmation**: Replaced dated browser `window.confirm()` and `alert()` popups with frosted confirmation dialogs and floating toast notifications.
+* **Slide-Over Resume Inspector**: Read and inspect original candidate resumes in an embedded slide-out drawer without leaving the evaluation dashboard.
+* **Export & Download**: Download original candidate resumes directly as `.docx` or formatted `.txt` files.
 
 ---
 
-## How Screening Works
+## 🛠️ Technology Stack
 
-### 1. Resume Upload
-Recruiters upload a `.docx` resume through the candidate screening form.
-
-### 2. DOCX Extraction
-The uploaded file is parsed on the server using Mammoth. Raw text is extracted and cleaned before being sent to the LLM.
-
-### 3. Job Matching
-The selected role is loaded from the job list and assembled with responsibilities, required skills, and experience criteria.
-
-### 4. AI Evaluation
-The backend selects the active LLM provider based on the API key format and calls the relevant provider. The evaluation includes:
-- `match_score`
-- `overall_fit`
-- `strong_matches`
-- `gaps_and_questions`
-
-### 5. Dashboard Persistence
-Results are added to the UI and stored in the browser local state. If a database is available, the same results are also saved to PostgreSQL.
-
-### 6. Fallback Mode
-If no API key is configured or the LLM call fails, the app returns a high-quality mock screening result so the workflow remains usable.
+| Layer | Technologies |
+| :--- | :--- |
+| **Framework** | Next.js 16 (App Router), React 19, TypeScript |
+| **Styling** | Tailwind CSS v4, Custom Glassmorphism tokens, CSS Variables |
+| **Database** | Serverless PostgreSQL ([Neon DB](https://neon.tech/)) via `postgres` client |
+| **Document Parsing** | Mammoth (`.docx` AST extraction and text sanitization) |
+| **AI / LLM Providers** | Groq (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`), Google Gemini, Grok |
+| **Deployment** | Vercel Serverless Functions |
 
 ---
 
-## Environment Variables
+## 📂 Project Architecture
 
-Create a `.env.local` file in the project root:
-
-```env
-LLM_API_KEY=your_api_key_here
-DATABASE_URL=postgresql://user:password@host:5432/db_name
+```
+Clara-Ai/
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── jobs/
+│   │   │   │   └── route.ts       # GET, POST, PUT, DELETE for job openings (Neon DB)
+│   │   │   └── screen/
+│   │   │       └── route.ts       # DOCX parsing, LLM cascade, screening DB storage
+│   │   ├── globals.css            # Apple design tokens, animations, glassmorphism
+│   │   ├── layout.tsx             # Root layout with metadata and fonts
+│   │   └── page.tsx               # Dual portal, Recruiter Workspace, Comparison Matrix
+│   ├── data/
+│   │   └── jobs.ts                # Default seed job requisitions
+│   └── lib/
+│       └── db.ts                  # Neon PostgreSQL connection & auto-migration schemas
+├── .env.local                     # Environment configuration (Keys & DB URL)
+├── package.json
+├── tsconfig.json
+└── README.md
 ```
 
-Notes:
-- `LLM_API_KEY` is used for live AI evaluation.
-- `DATABASE_URL` is optional.
-- If `DATABASE_URL` is not set, the app continues to work with local browser state.
-
 ---
 
-## Local Setup
+## 🚀 Getting Started
 
-### 1. Install dependencies
+### 1. Clone & Install Dependencies
 
 ```bash
+git clone https://github.com/Priyanknandawat/ClaraAi-Demo.git
+cd ClaraAi-Demo
 npm install
 ```
 
-### 2. Run the app locally
+### 2. Configure Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+# AI Provider Keys (at least one is required for live AI evaluations)
+GROQ_API_KEY=gsk_your_groq_api_key
+GEMINI_API_KEY=your_gemini_api_key
+
+# PostgreSQL Connection (e.g. Neon DB, Supabase, or AWS RDS)
+DATABASE_URL=postgresql://user:password@ep-aged-king-pooler.region.aws.neon.tech/neondb?sslmode=require
+```
+
+> **Note:** If `DATABASE_URL` is omitted, Clara AI gracefully falls back to browser `localStorage` state management, ensuring full offline or standalone functionality.
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:3000 to use the app.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 3. Production build
+### 4. Production Build
 
 ```bash
 npm run build
@@ -140,62 +126,15 @@ npm run start
 
 ---
 
-## Deployment on Vercel
+## 🔒 Security & Data Privacy
 
-For production deployment:
-1. Push this repository to GitHub.
-2. Import the project into Vercel.
-3. Add the environment variables:
-   - `LLM_API_KEY`
-   - optionally `DATABASE_URL`
-4. Deploy the project.
-
-Vercel will pick up the Next.js app automatically.
+* **Strict Input Sanitization**: Form inputs are validated and stripped of non-printable Unicode characters.
+* **Server-Side File Validation**: Enforces MIME types, file signature inspection, and 5MB size limits.
+* **Credential Isolation**: API keys and database credentials remain strictly server-side.
+* **Data Minimization**: Resume files are converted to structured evaluation criteria without transmitting unnecessary metadata to external APIs.
 
 ---
 
-## Security Notes
+## 📄 License
 
-The current app is suitable for a demo or internal tool workflow, but production hardening would be recommended for real-world recruiting data.
-
-Current safeguards in the code:
-- form inputs are sanitized before use
-- the server validates file type and content requirements
-- LLM inputs are generated server-side
-- DB writes are guarded behind an optional connection
-- the app does not write secrets directly into the codebase
-
-Recommended production hardening:
-- enforce file size limits and document scan checks
-- add rate limiting to screening requests
-- avoid storing full resume text when not needed
-- use short-lived access tokens for any production API auth
-- add audit logging and retention rules for candidate records
-- encrypt or minimize PII stored in the database
-
----
-
-## Current known trade-offs
-
-- only `.docx` resumes are accepted in the current workflow
-- browser localStorage is used as a fallback for demo and offline scenarios
-- the app uses simulated LLM fallback behavior so the workflow remains operable without a configured key
-- candidate data storage is lightweight and intentionally simple for this version
-
----
-
-## Future Improvements
-
-Possible next steps include:
-- PDF resume parsing support
-- stronger candidate record retention and archival
-- recruiter authentication and role-based access
-- DB-backed job and screening audit trails
-- better analytics and candidate comparison views
-- export to CSV or PDF reports for interview packs
-
----
-
-## Summary
-
-ClaraScreen is a recruiter-first AI screening assistant that focuses on structured evaluations and practical hiring decisions. It is optimized for a fast internal workflow and is already positioned well for Vercel deployment, while still requiring production security hardening before handling large-scale personal data. 
+This project is licensed under the MIT License. 
