@@ -19,6 +19,8 @@ Recruiting pipelines are often flooded with resumes, leading to screening fatigu
 
 ## How It Works
 
+![System Architecture Diagram](public/architecture_diagram.jpg)
+
 ### 1. DOCX Parsing
 Resumes are uploaded as `.docx` files. Upon screening submission:
 - The file is sent as a `multipart/form-data` request to the `/api/screen` API endpoint.
