@@ -589,7 +589,12 @@ export async function GET() {
   if (sql) {
     try {
       await ensureTablesExist();
-      const dbScreenings = await sql`SELECT * FROM screenings ORDER BY screened_at DESC`;
+      const dbScreenings = await sql`
+        SELECT s.*, j.title as job_title, j.company as job_company 
+        FROM screenings s 
+        LEFT JOIN jobs j ON s.job_id = j.id 
+        ORDER BY s.screened_at DESC
+      `;
       const formatted = dbScreenings.map((s) => ({
         id: s.id,
         candidateName: s.candidate_name,
@@ -599,6 +604,8 @@ export async function GET() {
         candidateAge: s.candidate_age,
         candidateLocation: s.candidate_location,
         jobId: s.job_id,
+        jobTitle: s.job_title || (s.job_id === "opening-a" ? "Founders Office Associate" : s.job_id === "opening-b" ? "Salesforce Developer Intern" : "General Role"),
+        jobCompany: s.job_company || (s.job_id === "opening-a" ? "Satva Partners" : s.job_id === "opening-b" ? "Salesforce" : "Company"),
         matchScore: s.match_score,
         overallFit: s.overall_fit,
         strongMatches: s.strong_matches || [],

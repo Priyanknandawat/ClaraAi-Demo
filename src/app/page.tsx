@@ -225,6 +225,37 @@ export default function ClaraAiPlatform() {
   // Modern Toast Notification Message
   const [toastNotification, setToastNotification] = useState<string | null>(null);
 
+  // Clara Copilot Chatbot States (TalentPulse & CareerPulse)
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
+  const [copilotMessages, setCopilotMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    {
+      role: "assistant",
+      content: "Hello! I am **Clara TalentPulse AI**. Ask me about candidate analyses, rankings, executive briefs, or interview questions."
+    }
+  ]);
+  const [copilotInput, setCopilotInput] = useState<string>("");
+  const [isCopilotLoading, setIsCopilotLoading] = useState<boolean>(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat on message change
+  useEffect(() => {
+    if (isCopilotOpen && chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [copilotMessages, isCopilotOpen]);
+
+  const handleCloseCopilot = () => {
+    setIsCopilotOpen(false);
+    setCopilotMessages([{
+      role: "assistant",
+      content: portalMode === "candidate"
+        ? "Hello! I am **Clara CareerPulse AI**. How can I help optimize your resume, keywords, or interview prep?"
+        : "Hello! I am **Clara TalentPulse AI**. Ask me about candidate analyses, rankings, executive briefs, or interview questions."
+    }]);
+    setCopilotInput("");
+  };
+
   // Lock background scroll when any modal is open to prevent background text bleed
   useEffect(() => {
     if (candidatePortalJob || editingJob || deleteConfirmState) {
@@ -260,8 +291,16 @@ export default function ClaraAiPlatform() {
         if (scrRes.ok) {
           const scrData = await scrRes.json();
           if (Array.isArray(scrData) && scrData.length > 0) {
-            loadedScreenings = scrData;
-            setScreenings(scrData);
+            const enriched = scrData.map((s: any) => {
+              const matchedJob = loadedJobs.find(j => j.id === s.jobId);
+              return {
+                ...s,
+                jobTitle: s.jobTitle || matchedJob?.title || (s.jobId === "opening-a" ? "Founders Office Associate" : s.jobId === "opening-b" ? "Salesforce Developer Intern" : "Target Role"),
+                jobCompany: s.jobCompany || matchedJob?.company || (s.jobId === "opening-a" ? "Satva Partners" : s.jobId === "opening-b" ? "Salesforce" : "Company")
+              };
+            });
+            loadedScreenings = enriched;
+            setScreenings(enriched);
           }
         }
 
@@ -325,6 +364,67 @@ export default function ClaraAiPlatform() {
     setTimeout(() => {
       setToastNotification((prev) => (prev === msg ? null : prev));
     }, 3500);
+  };
+
+  // Copilot Message Handler
+  const handleSendCopilotMessage = async (textToSend?: string) => {
+    const text = textToSend || copilotInput;
+    if (!text.trim() || isCopilotLoading) return;
+
+    const userMsg = { role: "user" as const, content: text.trim() };
+    const updatedMessages = [...copilotMessages, userMsg];
+    setCopilotMessages(updatedMessages);
+    if (!textToSend) setCopilotInput("");
+    setIsCopilotLoading(true);
+
+    try {
+      const chatContext: any = {};
+      if (portalMode === "candidate") {
+        chatContext.jobTitle = candidatePortalJob?.title || "Candidate Position Inquiry";
+        chatContext.jobCompany = candidatePortalJob?.company || "";
+        chatContext.jobDescription = candidatePortalJob?.description || "";
+        chatContext.allJobs = jobOpeningsList;
+      } else {
+        const activeScr = selectedScreeningId ? screenings.find(s => s.id === selectedScreeningId) : null;
+        chatContext.selectedScreening = activeScr || null;
+        chatContext.selectedJob = jobOpeningsList.find(j => j.id === (activeScr?.jobId || selectedJobId || compareJobId)) || null;
+        chatContext.allScreenings = screenings;
+        chatContext.allJobs = jobOpeningsList;
+      }
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const savedKey = localStorage.getItem("clara_custom_api_key");
+      if (savedKey) headers["x-llm-api-key"] = savedKey;
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          mode: portalMode,
+          messages: updatedMessages,
+          context: chatContext
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to get AI response");
+
+      setCopilotMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+    } catch (err: any) {
+      setCopilotMessages(prev => [
+        ...prev,
+        { role: "assistant", content: `⚠️ **Error**: ${err.message || "Failed to reach Clara Copilot. Please check your network or API keys."}` }
+      ]);
+    } finally {
+      setIsCopilotLoading(false);
+    }
+  };
+
+  const handleCopyChatText = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    showToast("Copied to clipboard!");
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   const handleSaveApiKey = () => {
@@ -2339,13 +2439,9 @@ export default function ClaraAiPlatform() {
       {/* APPLE-INSPIRED TRANSLUCENT FOOTER */}
       <footer className="mt-16 border-t border-slate-200 bg-white/90 backdrop-blur-md py-8 text-center text-xs text-slate-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} Clara AI Platform. Precision Talent Intelligence.</p>
-          <div className="flex items-center gap-4 text-slate-500 font-medium">
-            <span>Serverless Neon DB</span>
-            <span>•</span>
-            <span>Dual LLM Engine</span>
-            <span>•</span>
-            <span>Glassmorphic Apple Design</span>
+          <p>© {new Date().getFullYear()} Clara AI Platform. Precision Talent Intelligence & Candidate Screening.</p>
+          <div className="text-slate-400 font-normal">
+            Enterprise Grade • Confidential & Secure
           </div>
         </div>
       </footer>
@@ -2787,13 +2883,188 @@ export default function ClaraAiPlatform() {
         </div>
       )}
 
-      {/* APPLE-STYLE FLOATING TOAST NOTIFICATION */}
+      {/* APPLE-STYLE FLOATING TOAST NOTIFICATION (TOP RIGHT) */}
       {toastNotification && (
-        <div className="fixed bottom-6 right-6 z-[999999] animate-scaleIn">
+        <div className="fixed top-6 right-6 z-[999999] animate-scaleIn">
           <div className="bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>{toastNotification}</span>
           </div>
+        </div>
+      )}
+
+      {/* CLARA AI COPILOT CHATBOT WIDGET (TALENTPULSE & CAREERPULSE - RIGHT SIDE) */}
+      {!isCopilotOpen && (
+        <button
+          onClick={() => {
+            setIsCopilotOpen(true);
+            if (copilotMessages.length <= 1) {
+              setCopilotMessages([{
+                role: "assistant",
+                content: portalMode === "candidate"
+                  ? "Hello! I am **Clara CareerPulse AI**. How can I help optimize your resume, keywords, or interview prep?"
+                  : "Hello! I am **Clara TalentPulse AI**. Ask me about candidate analyses, rankings, executive briefs, or interview questions."
+              }]);
+            }
+          }}
+          className="fixed bottom-6 right-6 z-[9999] px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white text-xs font-bold rounded-full shadow-[0_10px_35px_rgba(37,99,235,0.4)] flex items-center gap-2.5 transition-all border border-white/20 group"
+        >
+          <span className="text-base group-hover:rotate-12 transition-transform">✨</span>
+          <span>{portalMode === "candidate" ? "CareerPulse AI" : "TalentPulse AI"}</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        </button>
+      )}
+
+      {isCopilotOpen && (
+        <div className="fixed bottom-6 right-6 z-[99999] w-[380px] sm:w-[430px] max-h-[600px] h-[78vh] bg-white/95 backdrop-blur-2xl rounded-3xl border border-slate-200/90 shadow-[0_30px_100px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden animate-scaleIn">
+          
+          {/* Copilot Header */}
+          <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-sm shadow-md font-bold">
+                ✨
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  {portalMode === "candidate" ? "Clara CareerPulse AI" : "Clara TalentPulse AI"}
+                  <span className="text-[9px] bg-blue-500/30 text-blue-300 font-semibold px-2 py-0.5 rounded-full border border-blue-400/30">
+                    Fast AI
+                  </span>
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {portalMode === "candidate" 
+                    ? (candidatePortalJob ? `Role: ${candidatePortalJob.title}` : "Career & Resume Coach") 
+                    : (selectedScreeningId ? "Active Candidate Analysis" : "Talent Intelligence & Reports")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleCloseCopilot}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors text-xs"
+                title="Close chat & reset"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Action Chips */}
+          <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+            {portalMode === "candidate" ? (
+              <>
+                <button
+                  onClick={() => handleSendCopilotMessage("How can I optimize my resume for this specific job opening?")}
+                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-[10px] font-semibold text-slate-700 hover:text-blue-700 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap transition-colors"
+                >
+                  🎯 Tailor Resume
+                </button>
+                <button
+                  onClick={() => handleSendCopilotMessage("What technical skills and keywords should I emphasize?")}
+                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-[10px] font-semibold text-slate-700 hover:text-blue-700 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap transition-colors"
+                >
+                  🔑 Missing Keywords
+                </button>
+                <button
+                  onClick={() => handleSendCopilotMessage("Give me 3 practice interview questions for this role.")}
+                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-[10px] font-semibold text-slate-700 hover:text-blue-700 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap transition-colors"
+                >
+                  💡 3 Practice Questions
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleSendCopilotMessage("Generate an Executive Hiring Report for the active candidate.")}
+                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-[10px] font-semibold text-slate-700 hover:text-blue-700 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap transition-colors"
+                >
+                  📑 Executive Report
+                </button>
+                <button
+                  onClick={() => handleSendCopilotMessage("Draft an interview invite email referencing key technical focus areas.")}
+                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-[10px] font-semibold text-slate-700 hover:text-blue-700 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap transition-colors"
+                >
+                  ✉️ Invite Email
+                </button>
+                <button
+                  onClick={() => handleSendCopilotMessage("What are the most critical risks and technical gaps with this candidate?")}
+                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-[10px] font-semibold text-slate-700 hover:text-blue-700 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap transition-colors"
+                >
+                  ⚠️ Critical Risks
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Messages Area */}
+          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 text-xs">
+            {copilotMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
+              >
+                <div
+                  className={`max-w-[88%] p-3 rounded-2xl leading-relaxed whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white rounded-br-xs font-medium shadow-md shadow-blue-600/10"
+                      : "bg-slate-100/90 text-slate-800 rounded-bl-xs border border-slate-200/80 shadow-2xs font-normal"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+
+                {msg.role === "assistant" && (
+                  <div className="mt-1 flex items-center gap-2 pl-1">
+                    <button
+                      onClick={() => handleCopyChatText(msg.content, i)}
+                      className="text-[10px] text-slate-400 hover:text-blue-600 font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      {copiedIndex === i ? "✓ Copied" : "📋 Copy"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {isCopilotLoading && (
+              <div className="flex items-center gap-1.5 p-3 bg-slate-100 rounded-2xl w-20 border border-slate-200 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]"></span>
+              </div>
+            )}
+
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Chat Input Bar */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendCopilotMessage();
+            }}
+            className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
+          >
+            <input
+              type="text"
+              value={copilotInput}
+              onChange={(e) => setCopilotInput(e.target.value)}
+              placeholder={portalMode === "candidate" ? "Ask how to improve your resume..." : "Ask for hiring reports, emails, or analysis..."}
+              disabled={isCopilotLoading}
+              className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400"
+            />
+            <button
+              type="submit"
+              disabled={isCopilotLoading || !copilotInput.trim()}
+              className="p-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-blue-600 text-white rounded-xl transition-all shrink-0 font-bold shadow-md shadow-blue-600/20"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path d="M3.105 2.289a.75.75 0 00-.826.95l1.414 4.925A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.896 28.896 0 0015.293-7.154.75.75 0 000-1.115A28.897 28.897 0 003.105 2.289z" />
+              </svg>
+            </button>
+          </form>
+
         </div>
       )}
 
