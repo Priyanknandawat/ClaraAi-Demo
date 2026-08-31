@@ -98,7 +98,33 @@ async function callGroqAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  const modelName = "llama-3.3-70b-versatile";
+  let modelName = "qwen/qwen3.8-27b"; // Fallback default for this key
+  try {
+    const listResponse = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (listResponse.ok) {
+      const data = await listResponse.json();
+      const models = data.data || [];
+      const chatModel = models.find((m: any) => 
+        (m.id.startsWith("llama-") || 
+         m.id.startsWith("qwen/") || 
+         m.id.startsWith("meta-llama/") ||
+         m.id.startsWith("openai/gpt-")) &&
+        !m.id.includes("whisper") && 
+        !m.id.includes("guard")
+      );
+      if (chatModel) {
+        modelName = chatModel.id;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to dynamically resolve Groq model, defaulting to qwen/qwen3.8-27b", e);
+  }
+
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
   const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
