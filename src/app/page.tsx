@@ -176,6 +176,9 @@ export default function ClaraAiPlatform() {
     age?: string;
   }>({});
 
+  // Resume drawer state
+  const [resumeDrawerOpen, setResumeDrawerOpen] = useState<boolean>(false);
+
   // Search & Filter states for Screenings table
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterJobId, setFilterJobId] = useState<string>("all");
@@ -819,13 +822,23 @@ export default function ClaraAiPlatform() {
             {activeScreening ? (
               /* INDIVIDUAL CANDIDATE SCREENING RESULT VIEW */
               <div className="flex flex-col gap-6">
-                {/* Back Link */}
-                <button 
-                  onClick={() => setSelectedScreeningId(null)}
-                  className="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center gap-1 self-start"
-                >
-                  ← Back to all screenings
-                </button>
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={() => { setSelectedScreeningId(null); setResumeDrawerOpen(false); }}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    ← Back to all screenings
+                  </button>
+                  {activeScreening.resumeText && (
+                    <button
+                      onClick={() => setResumeDrawerOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold rounded-lg transition-all shadow-sm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z"/></svg>
+                      View Resume
+                    </button>
+                  )}
+                </div>
 
                 {/* Warning message if simulated result */}
                 {activeScreening.warning && (
@@ -936,50 +949,87 @@ export default function ClaraAiPlatform() {
 
                 </div>
 
-                {/* Resume Text Viewer - Full Width below the grid */}
-                {activeScreening.resumeText && (
-                  <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col gap-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <h3 className="text-sm font-bold text-slate-950">📄 Parsed Resume Content</h3>
-                      <span className="text-[9px] text-slate-400 font-medium">
-                        {activeScreening.resumeText.split(/\s+/).length} words extracted
-                      </span>
-                    </div>
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-5 max-h-96 overflow-y-auto">
-                      <div className="flex flex-col gap-3">
-                        {activeScreening.resumeText
-                          .replace(/([A-Z]{2,}[A-Z\s&]+)/g, '\n§$1§\n')
-                          .split('\n')
-                          .map(line => line.trim())
-                          .filter(line => line.length > 0)
-                          .map((line, idx) => {
-                            if (line.startsWith('§') && line.endsWith('§')) {
-                              const heading = line.replace(/§/g, '').trim();
+                {/* Resume Slide-Out Drawer */}
+                {resumeDrawerOpen && activeScreening.resumeText && (
+                  <>
+                    {/* Backdrop overlay */}
+                    <div 
+                      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[60] transition-opacity"
+                      onClick={() => setResumeDrawerOpen(false)}
+                    />
+                    {/* Drawer panel */}
+                    <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl z-[70] flex flex-col animate-slideInRight">
+                      {/* Drawer Header */}
+                      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4"><path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z"/></svg>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-900">Resume</h3>
+                            <p className="text-[10px] text-slate-400">{activeScreening.candidateName}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setResumeDrawerOpen(false)}
+                          className="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {/* Drawer Body - Word-like page */}
+                      <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
+                        <div className="bg-white rounded-lg shadow-md border border-slate-200 px-10 py-10 min-h-full" style={{fontFamily: 'Calibri, Segoe UI, sans-serif'}}>
+                          {activeScreening.resumeText
+                            .replace(/([A-Z]{2,}[A-Z\s&]+)/g, '\n§$1§\n')
+                            .split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0)
+                            .map((line, idx) => {
+                              if (line.startsWith('§') && line.endsWith('§')) {
+                                const heading = line.replace(/§/g, '').trim();
+                                return (
+                                  <h4 key={idx} className="text-[13px] font-bold text-slate-900 uppercase tracking-wide border-b-2 border-blue-600 pb-1 pt-5 mb-2">
+                                    {heading}
+                                  </h4>
+                                );
+                              }
+                              // Detect the candidate name line (first line typically)
+                              if (idx === 0) {
+                                return (
+                                  <h2 key={idx} className="text-lg font-bold text-slate-950 mb-1">{line}</h2>
+                                );
+                              }
+                              // Contact info line (contains email or phone)
+                              if (line.includes('@') || line.includes('+(') || line.includes('LinkedIn')) {
+                                return (
+                                  <p key={idx} className="text-[11px] text-blue-700 mb-3 break-all leading-relaxed">{line}</p>
+                                );
+                              }
+                              // Date ranges (e.g., 2022 – 2026)
+                              if (/\d{4}\s*[–-]\s*\d{4}/.test(line) || /\d{4}$/.test(line.trim())) {
+                                return (
+                                  <p key={idx} className="text-[11px] text-slate-500 italic mb-1">{line}</p>
+                                );
+                              }
+                              // Bullet-style items
+                              if (line.startsWith('•') || line.startsWith('-') || line.startsWith('Worked') || line.startsWith('Configured') || line.startsWith('Developed') || line.startsWith('Participated') || line.startsWith('Implemented')) {
+                                return (
+                                  <div key={idx} className="flex gap-2 mb-1.5 pl-2">
+                                    <span className="text-blue-600 text-[11px] mt-0.5 shrink-0">•</span>
+                                    <p className="text-[11px] text-slate-700 leading-relaxed">{line.replace(/^[•-]\s*/, '')}</p>
+                                  </div>
+                                );
+                              }
                               return (
-                                <h4 key={idx} className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-1 pt-2">
-                                  {heading}
-                                </h4>
+                                <p key={idx} className="text-[11px] text-slate-700 leading-relaxed mb-1.5">{line}</p>
                               );
-                            }
-                            return (
-                              <p key={idx} className="text-xs text-slate-600 leading-relaxed">
-                                {line}
-                              </p>
-                            );
-                          })
-                        }
+                            })
+                          }
+                        </div>
                       </div>
                     </div>
-                    <p className="text-[9px] text-slate-400 italic">
-                      This is the text extracted from the uploaded .docx resume that was analyzed by the AI.
-                    </p>
-                  </div>
-                )}
-
-                {!activeScreening.resumeText && (
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
-                    <p className="text-xs text-slate-400 italic">Resume text not available for this screening. New screenings will include the parsed resume content.</p>
-                  </div>
+                  </>
                 )}
 
               </div>
