@@ -9,7 +9,29 @@ async function callGrokAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  const modelName = "grok-2";
+  let modelName = "grok-4.3"; // Default for 2026
+  try {
+    const listResponse = await fetch("https://api.x.ai/v1/models", {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    if (listResponse.ok) {
+      const data = await listResponse.json();
+      const models = data.data || [];
+      const chatModel = models.find((m: any) => 
+        m.id.startsWith("grok-") && 
+        !m.id.includes("imagine") && 
+        !m.id.includes("vision")
+      );
+      if (chatModel) {
+        modelName = chatModel.id;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to dynamically resolve model, defaulting to grok-4.3", e);
+  }
+
   const url = "https://api.x.ai/v1/chat/completions";
 
   const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
