@@ -9,7 +9,7 @@ async function callGeminiAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  const modelName = "gemini-1.5-flash";
+  const modelName = "gemini-3.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
