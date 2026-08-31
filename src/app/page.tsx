@@ -549,14 +549,18 @@ export default function InterviewScreener() {
                 {/* Strong Matches */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
                   <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Strong Matches</h3>
-                  <ul className="flex flex-col gap-3">
-                    {screeningResult.strong_matches.map((strength, index) => (
-                      <li key={index} className="flex gap-2.5 text-xs text-slate-600 leading-relaxed">
-                        <span className="text-emerald-500 font-semibold shrink-0">✓</span>
-                        <span>{strength}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {screeningResult.strong_matches && screeningResult.strong_matches.length > 0 ? (
+                    <ul className="flex flex-col gap-3">
+                      {screeningResult.strong_matches.map((strength, index) => (
+                        <li key={index} className="flex gap-2.5 text-xs text-slate-600 leading-relaxed">
+                          <span className="text-emerald-500 font-semibold shrink-0">✓</span>
+                          <span>{strength}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic py-1">No significant matching requirements found in the resume for this position.</p>
+                  )}
                 </div>
               </div>
 
@@ -567,20 +571,24 @@ export default function InterviewScreener() {
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
                   <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Gaps & Interview Questions</h3>
                   
-                  <div className="flex flex-col gap-5 divide-y divide-slate-100">
-                    {screeningResult.gaps_and_questions.map((item, index) => (
-                      <div key={index} className={`flex flex-col gap-2 ${index > 0 ? "pt-4" : ""}`}>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gap / Uncertainty</span>
-                          <p className="text-xs text-slate-700 leading-relaxed">{item.gap}</p>
+                  {screeningResult.gaps_and_questions && screeningResult.gaps_and_questions.length > 0 ? (
+                    <div className="flex flex-col gap-5 divide-y divide-slate-100">
+                      {screeningResult.gaps_and_questions.map((item, index) => (
+                        <div key={index} className={`flex flex-col gap-2 ${index > 0 ? "pt-4" : ""}`}>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gap / Uncertainty</span>
+                            <p className="text-xs text-slate-700 leading-relaxed">{item.gap}</p>
+                          </div>
+                          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col gap-1">
+                            <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Ask Recruiter Question</span>
+                            <p className="text-xs font-semibold text-slate-800 leading-relaxed italic">"{item.question}"</p>
+                          </div>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col gap-1">
-                          <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Ask Recruiter Question</span>
-                          <p className="text-xs font-semibold text-slate-800 leading-relaxed italic">"{item.question}"</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic py-1">No significant gaps or uncertainties detected.</p>
+                  )}
                 </div>
 
                 {/* Rescreen Buttons */}
