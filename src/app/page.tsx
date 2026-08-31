@@ -26,6 +26,7 @@ interface SavedScreening {
   screenedAt: string;
   warning?: string;
   resumeText?: string;
+  resumeHtml?: string;
 }
 
 interface CandidateForm {
@@ -412,7 +413,8 @@ export default function ClaraAiPlatform() {
         gapsAndQuestions: data.gaps_and_questions || [],
         screenedAt: new Date().toISOString(),
         warning: data.warning,
-        resumeText: data.resumeText || undefined
+        resumeText: data.resumeText || undefined,
+        resumeHtml: data.resumeHtml || undefined
       };
 
       const updated = [newScreening, ...screenings];
@@ -605,6 +607,76 @@ export default function ClaraAiPlatform() {
 
   const selectedJob = jobOpeningsList.find(j => j.id === selectedJobId);
   const activeScreening = screenings.find(s => s.id === selectedScreeningId);
+
+  const formatResumePreview = (resumeText: string) => {
+    if (!resumeText) return [] as Array<{ type: string; text: string }>;
+
+    const lines = resumeText
+      .replace(/\r/g, "\n")
+      .replace(/\u00a0/g, " ")
+      .replace(/[\t ]+\n/g, "\n")
+      .split(/\n+/)
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+    const sectionKeywords = [
+      "PERSONAL SUMMARY",
+      "SUMMARY",
+      "PROFILE",
+      "OBJECTIVE",
+      "EDUCATION",
+      "CORE SKILLS",
+      "SKILLS",
+      "EXPERIENCE",
+      "WORK EXPERIENCE",
+      "PROJECTS",
+      "PROJECTS EXPERIENCE",
+      "CERTIFICATIONS",
+      "ACHIEVEMENTS",
+      "INTERESTS",
+      "CONTACT",
+      "TECHNICAL SKILLS",
+      "KEY SKILLS"
+    ];
+
+    const result: Array<{ type: string; text: string }> = [];
+
+    for (const rawLine of lines) {
+      const line = rawLine.replace(/^[•·\-*]\s*/, "").trim();
+      if (!line) continue;
+
+      const normalized = line.replace(/[^A-Za-z0-9&/()\-\s]/g, " ").replace(/\s+/g, " ").trim();
+      const isSectionHeading = sectionKeywords.some((keyword) =>
+        normalized.toUpperCase() === keyword || normalized.toUpperCase().startsWith(keyword + " ")
+      );
+
+      if (isSectionHeading) {
+        result.push({ type: "heading", text: line.toUpperCase() });
+        continue;
+      }
+
+      if (/^(?:\+?[0-9\s().-]{7,}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(?:linkedin|github|portfolio)[^\s]*|www\.)/i.test(line)) {
+        result.push({ type: "contact", text: line });
+        continue;
+      }
+
+      if (/\d{4}\s*[–-]\s*\d{4}/.test(line) || /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[A-Za-z]*\s\d{4}\b/i.test(line) || /^\d{4}$/.test(line)) {
+        result.push({ type: "meta", text: line });
+        continue;
+      }
+
+      if (/^(?:worked|developed|managed|led|built|created|designed|implemented|contributed|collaborated|supported|assisted|delivered|optimized|executed|handled|owned|configured|performed|participated)/i.test(line) || /^[-*•]\s*/.test(rawLine)) {
+        result.push({ type: "bullet", text: line.replace(/^[-*•]\s*/, "") });
+        continue;
+      }
+
+      result.push({ type: "paragraph", text: line });
+    }
+
+    return result;
+  };
+
+  const resumePreviewLines = activeScreening ? formatResumePreview(activeScreening.resumeText || "") : [];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased">
@@ -1038,82 +1110,107 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {/* Resume Slide-Out Drawer */}
-                {resumeDrawerOpen && activeScreening.resumeText && (
+                {resumeDrawerOpen && (activeScreening.resumeHtml || activeScreening.resumeText) && (
                   <>
-                    {/* Backdrop overlay */}
                     <div 
-                      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[60] transition-opacity"
+                      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] transition-opacity"
                       onClick={() => setResumeDrawerOpen(false)}
                     />
-                    {/* Drawer panel */}
-                    <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl z-[70] flex flex-col animate-slideInRight">
+
+                    <div className="fixed top-0 right-0 h-full w-full max-w-5xl bg-slate-100 shadow-[0_25px_80px_rgba(15,23,42,0.3)] z-[70] flex flex-col animate-slideInRight">
                       {/* Drawer Header */}
-                      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-4 h-4"><path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z"/></svg>
+                      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="white" className="w-5 h-5"><path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13z"/></svg>
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-slate-900">Resume</h3>
-                            <p className="text-[10px] text-slate-400">{activeScreening.candidateName}</p>
+                            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                              Resume Document
+                              <span className="text-[10px] font-normal px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
+                                Word Preview
+                              </span>
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">{activeScreening.candidateName} • {activeScreening.jobTitle}</p>
                           </div>
                         </div>
-                        <button
-                          onClick={() => setResumeDrawerOpen(false)}
-                          className="w-8 h-8 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors"
-                        >
-                          ✕
-                        </button>
+
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => window.print()}
+                            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0113.25 8H6.75A1.75 1.75 0 015 6.25v-3.5zm1.75.25a.25.25 0 00-.25.25v3a.25.25 0 00.25.25h6.5a.25.25 0 00.25-.25v-3a.25.25 0 00-.25-.25h-6.5z" clipRule="evenodd"/><path d="M1 9.75C1 8.784 1.784 8 2.75 8h14.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0117.25 17H15v-3.5A1.75 1.75 0 0013.25 12H6.75A1.75 1.75 0 005 13.75V17H2.75A1.75 1.75 0 011 15.25v-5.5z"/><path d="M6.5 13.75c0-.138.112-.25.25-.25h6.5c.138 0 .25.112.25.25v4.5a.25.25 0 01-.25.25h-6.5a.25.25 0 01-.25-.25v-4.5z"/></svg>
+                            Print
+                          </button>
+                          <button
+                            onClick={() => setResumeDrawerOpen(false)}
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors font-bold text-sm"
+                            aria-label="Close resume drawer"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
-                      {/* Drawer Body - Word-like page */}
-                      <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
-                        <div className="bg-white rounded-lg shadow-md border border-slate-200 px-10 py-10 min-h-full" style={{fontFamily: 'Calibri, Segoe UI, sans-serif'}}>
-                          {activeScreening.resumeText
-                            .replace(/([A-Z]{2,}[A-Z\s&]+)/g, '\n§$1§\n')
-                            .split('\n')
-                            .map(line => line.trim())
-                            .filter(line => line.length > 0)
-                            .map((line, idx) => {
-                              if (line.startsWith('§') && line.endsWith('§')) {
-                                const heading = line.replace(/§/g, '').trim();
-                                return (
-                                  <h4 key={idx} className="text-[13px] font-bold text-slate-900 uppercase tracking-wide border-b-2 border-blue-600 pb-1 pt-5 mb-2">
-                                    {heading}
-                                  </h4>
-                                );
-                              }
-                              // Detect the candidate name line (first line typically)
-                              if (idx === 0) {
-                                return (
-                                  <h2 key={idx} className="text-lg font-bold text-slate-950 mb-1">{line}</h2>
-                                );
-                              }
-                              // Contact info line (contains email or phone)
-                              if (line.includes('@') || line.includes('+(') || line.includes('LinkedIn')) {
-                                return (
-                                  <p key={idx} className="text-[11px] text-blue-700 mb-3 break-all leading-relaxed">{line}</p>
-                                );
-                              }
-                              // Date ranges (e.g., 2022 – 2026)
-                              if (/\d{4}\s*[–-]\s*\d{4}/.test(line) || /\d{4}$/.test(line.trim())) {
-                                return (
-                                  <p key={idx} className="text-[11px] text-slate-500 italic mb-1">{line}</p>
-                                );
-                              }
-                              // Bullet-style items
-                              if (line.startsWith('•') || line.startsWith('-') || line.startsWith('Worked') || line.startsWith('Configured') || line.startsWith('Developed') || line.startsWith('Participated') || line.startsWith('Implemented')) {
-                                return (
-                                  <div key={idx} className="flex gap-2 mb-1.5 pl-2">
-                                    <span className="text-blue-600 text-[11px] mt-0.5 shrink-0">•</span>
-                                    <p className="text-[11px] text-slate-700 leading-relaxed">{line.replace(/^[•-]\s*/, '')}</p>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <p key={idx} className="text-[11px] text-slate-700 leading-relaxed mb-1.5">{line}</p>
-                              );
-                            })
-                          }
+
+                      {/* Drawer Body - Document Paper layout */}
+                      <div className="flex-1 overflow-y-auto bg-slate-200/70 p-4 sm:p-8 md:p-12 flex justify-center">
+                        <div className="w-full max-w-4xl bg-white shadow-[0_10px_40px_rgba(0,0,0,0.12),0_1px_3px_rgba(0,0,0,0.06)] rounded-sm border border-slate-300/80 p-8 sm:p-14 md:p-16 min-h-[900px]">
+                          
+                          {/* Rich HTML Word Document (supports embedded images, tables, lists, bold) */}
+                          {activeScreening.resumeHtml ? (
+                            <div
+                              className="word-document-page"
+                              dangerouslySetInnerHTML={{ __html: activeScreening.resumeHtml }}
+                            />
+                          ) : resumePreviewLines.length > 0 ? (
+                            /* Formatted text fallback */
+                            <div className="space-y-6">
+                              <div className="border-b-2 border-slate-900 pb-4">
+                                <h1 className="text-2xl font-bold text-slate-950">
+                                  {activeScreening.candidateName || resumePreviewLines[0]?.text || "Candidate"}
+                                </h1>
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                                  {resumePreviewLines
+                                    .filter((line) => line.type === "contact")
+                                    .map((line, idx) => (
+                                      <span key={idx} className="bg-slate-100 px-2.5 py-1 rounded text-slate-800 font-medium">
+                                        {line.text}
+                                      </span>
+                                    ))}
+                                </div>
+                              </div>
+
+                              <div className="space-y-4 text-xs leading-relaxed text-slate-800">
+                                {resumePreviewLines.slice(1).map((line, idx) => {
+                                  if (line.type === "heading") {
+                                    return (
+                                      <h2 key={idx} className="text-sm font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mt-6">
+                                        {line.text}
+                                      </h2>
+                                    );
+                                  }
+                                  if (line.type === "bullet") {
+                                    return (
+                                      <div key={idx} className="flex gap-2.5 pl-3">
+                                        <span className="text-blue-600 font-bold">•</span>
+                                        <p className="flex-1">{line.text}</p>
+                                      </div>
+                                    );
+                                  }
+                                  return <p key={idx}>{line.text}</p>;
+                                })}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex min-h-[400px] items-center justify-center text-center">
+                              <div className="max-w-md p-6 rounded-xl border border-dashed border-slate-300 bg-slate-50">
+                                <p className="text-sm font-bold text-slate-800">Resume Content Not Available</p>
+                                <p className="mt-1 text-xs text-slate-500">This candidate record does not contain extractable document text.</p>
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     </div>

@@ -40,13 +40,17 @@ export async function ensureTablesExist() {
         gaps_and_questions JSONB NOT NULL DEFAULT '[]',
         screened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         warning TEXT,
-        resume_text TEXT
+        resume_text TEXT,
+        resume_html TEXT
       )
     `;
 
-    // Alter statement to add resume_text column to existing database tables if they already exist
+    // Alter statements to add resume_text and resume_html columns to existing database tables if they already exist
     await sql`
       ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_text TEXT
+    `;
+    await sql`
+      ALTER TABLE screenings ADD COLUMN IF NOT EXISTS resume_html TEXT
     `;
     console.log("Database tables verified and migrated successfully.");
   } catch (error) {

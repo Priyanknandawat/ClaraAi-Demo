@@ -3,6 +3,25 @@ import mammoth from "mammoth";
 import { jobOpenings } from "@/data/jobs";
 import { sql, ensureTablesExist } from "@/lib/db";
 
+function parseJsonSafely(text: string): any {
+  if (!text) {
+    throw new Error("Empty response content from AI provider");
+  }
+
+  let cleaned = text.trim();
+  // Remove markdown code blocks if wrapped (```json ... ``` or ``` ...)
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+
+  // If extra text surrounds the JSON object, extract substring from first { to last }
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  return JSON.parse(cleaned);
+}
+
 // Abstraction for Gemini API calling
 async function callGeminiAPI(
   apiKey: string,
@@ -10,7 +29,7 @@ async function callGeminiAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  const modelName = "gemini-3.5-flash";
+  const modelName = "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
@@ -20,10 +39,10 @@ RULES:
 1. Evaluate ONLY based on the provided resume and job description. Do not invent any credentials, experience, or qualifications.
 2. Distinguish explicit evidence from assumptions. Identify uncertainty where information is missing or unclear.
 3. Never treat missing information as proof that the candidate lacks a skill. Simply identify it as a gap or area of uncertainty.
-4. STRICT COMPLIANCE: Do NOT use protected or sensitive personal characteristics (such as Age, Gender, Race, Religion, Disability, Marital Status) for candidate scoring or evaluation. These details might be provided in the candidate info, but they must NOT influence the match score or candidate fit summary in any way.
+4. STRICT COMPLIANCE: Do NOT use protected or sensitive personal characteristics (such as Age, Gender, Race, Religion, Disability, Marital Status) for candidate scoring or evaluation.
 5. Avoid overly enthusiastic or marketing-like language. Be objective, calm, professional, and recruiter-focused.
-6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
-7. Return a structured JSON response matching the required schema.`;
+6. Favor concrete evidence-based statements over generic assertions.
+7. Return a structured JSON response with match_score (0-100), overall_fit (string), strong_matches (array of strings), and gaps_and_questions (array of {gap, question} objects).`;
 
   const userPrompt = `Candidate Name: ${candidateDetails.name}
 Candidate Location: ${candidateDetails.currentLocation}
@@ -44,36 +63,11 @@ ${resumeText}`;
       contents: [
         {
           role: "user",
-          parts: [
-            { text: `${systemPrompt}\n\n---\n\n${userPrompt}` }
-          ]
+          parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }]
         }
       ],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            match_score: { type: "INTEGER" },
-            overall_fit: { type: "STRING" },
-            strong_matches: {
-              type: "ARRAY",
-              items: { type: "STRING" }
-            },
-            gaps_and_questions: {
-              type: "ARRAY",
-              items: {
-                type: "OBJECT",
-                properties: {
-                  gap: { type: "STRING" },
-                  question: { type: "STRING" }
-                },
-                required: ["gap", "question"]
-              }
-            }
-          },
-          required: ["match_score", "overall_fit", "strong_matches", "gaps_and_questions"]
-        }
       }
     }),
   });
@@ -89,7 +83,7 @@ ${resumeText}`;
     throw new Error("Empty response from Gemini API");
   }
 
-  return JSON.parse(rawContent);
+  return parseJsonSafely(rawContent);
 }
 
 // Abstraction for Groq API calling (groq.com)
@@ -99,60 +93,23 @@ async function callGroqAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  let modelName = "qwen/qwen3.8-27b"; // Fallback default for this key
-  try {
-    const listResponse = await fetch("https://api.groq.com/openai/v1/models", {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "User-Agent": "Mozilla/5.0",
-      },
-    });
-    if (listResponse.ok) {
-      const data = await listResponse.json();
-      const models = data.data || [];
-      const chatModel = models.find((m: any) => 
-        (m.id.startsWith("llama-") || 
-         m.id.startsWith("qwen/") || 
-         m.id.startsWith("meta-llama/") ||
-         m.id.startsWith("openai/gpt-")) &&
-        !m.id.includes("whisper") && 
-        !m.id.includes("guard")
-      );
-      if (chatModel) {
-        modelName = chatModel.id;
-      }
-    }
-  } catch (e) {
-    console.error("Failed to dynamically resolve Groq model, defaulting to qwen/qwen3.8-27b", e);
-  }
-
+  const modelName = "llama-3.3-70b-versatile";
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
-  const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
-Your job is to compare the candidate's resume against the job description requirements and provide an objective, evidence-based evaluation.
+  const systemPrompt = `You are an expert recruiter evaluating a candidate against a job description.
+Evaluate only based on the provided resume and job description. Do not invent credentials.
+Do not use age, gender, race, or other protected characteristics in scoring.
+You MUST output valid JSON and nothing else.
 
-RULES:
-1. Evaluate ONLY based on the provided resume and job description. Do not invent any credentials, experience, or qualifications.
-2. Distinguish explicit evidence from assumptions. Identify uncertainty where information is missing or unclear.
-3. Never treat missing information as proof that the candidate lacks a skill. Simply identify it as a gap or area of uncertainty.
-4. STRICT COMPLIANCE: Do NOT use protected or sensitive personal characteristics (such as Age, Gender, Race, Religion, Disability, Marital Status) for candidate scoring or evaluation. These details might be provided in the candidate info, but they must NOT influence the match score or candidate fit summary in any way.
-5. Avoid overly enthusiastic or marketing-like language. Be objective, calm, professional, and recruiter-focused.
-6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
-7. Return a structured JSON response matching the required shape.
-
-The response must be valid JSON only. Do not include any text before or after the JSON. Do not wrap in markdown code blocks.
-
-Example JSON output structure:
+Required JSON Structure:
 {
-  "match_score": 85,
-  "overall_fit": "The candidate has strong alignment with the role based on their technical experience...",
-  "strong_matches": [
-    "Candidate has 3 years of data analysis experience using Excel, matching the data tool requirement."
-  ],
+  "match_score": 75,
+  "overall_fit": "Concise summary of candidate fit...",
+  "strong_matches": ["Key strength 1", "Key strength 2"],
   "gaps_and_questions": [
     {
-      "gap": "No explicit mention of experience leading client presentations.",
-      "question": "Can you walk us through a time you presented data findings to an external client?"
+      "gap": "Description of gap or missing information",
+      "question": "Specific interview question to ask candidate"
     }
   ]
 }`;
@@ -164,7 +121,7 @@ Candidate Email: ${candidateDetails.email}
 Job Description:
 ${jobDescription}
 
-Candidate Resume Text:
+Candidate Resume:
 ${resumeText}`;
 
   const response = await fetch(url, {
@@ -179,9 +136,7 @@ ${resumeText}`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      response_format: { type: "json_object" },
       temperature: 0.1,
-      max_tokens: 2048,
     }),
   });
 
@@ -196,7 +151,18 @@ ${resumeText}`;
     throw new Error("Empty response from Groq API");
   }
 
-  return JSON.parse(rawContent);
+  const parsed = parseJsonSafely(rawContent);
+
+  if (
+    typeof parsed.match_score !== "number" ||
+    typeof parsed.overall_fit !== "string" ||
+    !Array.isArray(parsed.strong_matches) ||
+    !Array.isArray(parsed.gaps_and_questions)
+  ) {
+    throw new Error("Groq returned an incomplete JSON structure");
+  }
+
+  return parsed;
 }
 
 // Abstraction for Grok API calling
@@ -206,58 +172,17 @@ async function callGrokAPI(
   jobDescription: string,
   candidateDetails: any
 ): Promise<any> {
-  let modelName = "grok-4.3"; // Default for 2026
-  try {
-    const listResponse = await fetch("https://api.x.ai/v1/models", {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-    if (listResponse.ok) {
-      const data = await listResponse.json();
-      const models = data.data || [];
-      const chatModel = models.find((m: any) => 
-        m.id.startsWith("grok-") && 
-        !m.id.includes("imagine") && 
-        !m.id.includes("vision")
-      );
-      if (chatModel) {
-        modelName = chatModel.id;
-      }
-    }
-  } catch (e) {
-    console.error("Failed to dynamically resolve model, defaulting to grok-4.3", e);
-  }
-
+  const modelName = "grok-beta";
   const url = "https://api.x.ai/v1/chat/completions";
 
   const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
-Your job is to compare the candidate's resume against the job description requirements and provide an objective, evidence-based evaluation.
-
-RULES:
-1. Evaluate ONLY based on the provided resume and job description. Do not invent any credentials, experience, or qualifications.
-2. Distinguish explicit evidence from assumptions. Identify uncertainty where information is missing or unclear.
-3. Never treat missing information as proof that the candidate lacks a skill. Simply identify it as a gap or area of uncertainty.
-4. STRICT COMPLIANCE: Do NOT use protected or sensitive personal characteristics (such as Age, Gender, Race, Religion, Disability, Marital Status) for candidate scoring or evaluation. These details might be provided in the candidate info, but they must NOT influence the match score or candidate fit summary in any way.
-5. Avoid overly enthusiastic or marketing-like language. Be objective, calm, professional, and recruiter-focused.
-6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
-7. Return a structured JSON response matching the required shape.
-
-The response must be valid JSON only. Do not include any text before or after the JSON. Do not wrap in markdown code blocks.
-
-Example JSON output structure:
+Compare the resume against the job description requirements. Provide an objective evaluation.
+Return valid JSON only matching the schema:
 {
   "match_score": 85,
-  "overall_fit": "The candidate has strong alignment with the role based on their technical experience...",
-  "strong_matches": [
-    "Candidate has 3 years of data analysis experience using Excel, matching the data tool requirement."
-  ],
-  "gaps_and_questions": [
-    {
-      "gap": "No explicit mention of experience leading client presentations.",
-      "question": "Can you walk us through a time you presented data findings to an external client?"
-    }
-  ]
+  "overall_fit": "string",
+  "strong_matches": ["string"],
+  "gaps_and_questions": [{"gap": "string", "question": "string"}]
 }`;
 
   const userPrompt = `Candidate Name: ${candidateDetails.name}
@@ -282,7 +207,6 @@ ${resumeText}`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      response_format: { type: "json_object" },
       temperature: 0.1,
       max_tokens: 2048,
     }),
@@ -299,77 +223,40 @@ ${resumeText}`;
     throw new Error("Empty response from Grok API");
   }
 
-  return JSON.parse(rawContent);
+  return parseJsonSafely(rawContent);
 }
 
-// Simulated mock result in case API key is missing or fails
+// Simulated / Fallback scoring
 function getMockScreeningResult(
   jobId: string,
   candidateName: string,
   resumeText: string
 ): any {
-  // Simple check of text to customize the mock a tiny bit, showing it is not completely generic
   const hasExcel = /excel|sheet/i.test(resumeText);
   const hasMarketing = /marketing|social|content/i.test(resumeText);
   
   if (jobId === "opening-a") {
     return {
       match_score: hasExcel ? 82 : 68,
-      overall_fit: `The candidate ${candidateName} shows decent alignment for the Founders Office Associate position. They have corporate experience that matches Tier-1 requirements, but require verification on outcomes-based planning capabilities.`,
-      strong_matches: [
-        `Has relevant technical consulting background with experience storyboarding presentations.`,
-        hasExcel 
-          ? `Demonstrated data analysis and manipulation skills using Excel.` 
-          : `Mentions general research capabilities, though Excel usage is not explicitly highlighted.`,
-        `Shows strong verbal and written communication suitable for executive interactions.`
-      ],
-      gaps_and_questions: [
-        {
-          gap: "Outcome-based planning milestones tracking is not detailed.",
-          question: "Can you walk me through a complex project where you designed the milestones and managed risks yourself?"
-        },
-        {
-          gap: "Direct experience working under pressure with founders is unclear.",
-          question: "Describe a time you worked directly with a founder/CXO under tight deadlines. How did you manage expectations?"
-        }
-      ],
+      overall_fit: `The candidate ${candidateName} shows decent alignment for the Founders Office Associate position.`,
+      strong_matches: [`Has relevant consulting background.`],
+      gaps_and_questions: [{ gap: "Planning details missing.", question: "How do you manage risks?" }],
       isMock: true
     };
   } else {
     return {
       match_score: hasMarketing ? 85 : 65,
-      overall_fit: `The candidate ${candidateName} demonstrates a strong background in content strategy and team leadership, which aligns well with the Content & Communities Lead role at House of Ved. However, their experience with Spotify/podcast platforms is unclear.`,
-      strong_matches: [
-        `Demonstrated 5+ years of experience across social products and platform ownership.`,
-        hasMarketing 
-          ? `Strong experience managing content calendars and creative teams for marketing campaigns.`
-          : `General marketing background with experience coordinating service providers.`,
-        `Exhibits stakeholder management skills suitable for a Senior Manager/Leadership role.`
-      ],
-      gaps_and_questions: [
-        {
-          gap: "Missing explicit evidence of managing guided meditation or specialized puja content products.",
-          question: "What is your personal familiarity or experience with launching specialized content like guided meditations or puja products?"
-        },
-        {
-          gap: "SEO and performance analytics tools usage on YouTube is not fully articulated.",
-          question: "Can you share specific YouTube SEO strategies you used to grow a channel and what analytics tools you rely on?"
-        }
-      ],
+      overall_fit: `The candidate ${candidateName} demonstrates a strong background in content strategy and team leadership.`,
+      strong_matches: [`5+ years experience.`],
+      gaps_and_questions: [{ gap: "SEO experience unclear.", question: "What SEO strategies do you use?" }],
       isMock: true
     };
   }
 }
 
-function sanitizeString(str: string): string {
+function cleanInputString(str: string): string {
   if (!str) return "";
-  return str
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // remove control characters
-    .replace(/\\/g, "\\\\") // escape backslashes
-    .replace(/"/g, '\\"') // escape double quotes
-    .replace(/\r?\n|\r/g, " ") // replace line breaks with spaces
-    .replace(/[;{}|[\]]/g, "") // remove characters that can disrupt JSON schema parsing
-    .trim();
+  return str.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, "").trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -384,209 +271,101 @@ export async function POST(req: NextRequest) {
     const rawCurrentLocation = formData.get("currentLocation") as string | null;
     const jobOpeningId = formData.get("jobOpeningId") as string | null;
 
-    // Sanitize parameters
-    const name = sanitizeString(rawName || "");
-    const email = sanitizeString(rawEmail || "");
-    const phone = sanitizeString(rawPhone || "");
-    const address = sanitizeString(rawAddress || "");
-    const age = sanitizeString(rawAge || "");
-    const currentLocation = sanitizeString(rawCurrentLocation || "");
+    const name = cleanInputString(rawName || "");
+    const email = cleanInputString(rawEmail || "");
+    const phone = cleanInputString(rawPhone || "");
+    const address = cleanInputString(rawAddress || "");
+    const age = cleanInputString(rawAge || "");
+    const currentLocation = cleanInputString(rawCurrentLocation || "");
 
-    // Validate inputs
     if (!file || !name || !email || !jobOpeningId) {
-      return NextResponse.json(
-        { error: "Missing required screening parameters." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required screening parameters." }, { status: 400 });
     }
 
-    // Validate file type is DOCX
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (extension !== "docx") {
-      return NextResponse.json(
-        { error: "Invalid file type. Only .docx files are accepted." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid file type. Only .docx files are accepted." }, { status: 400 });
     }
 
-    // Extract text from docx
     let resumeText = "";
+    let resumeHtml = "";
     try {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const parseResult = await mammoth.extractRawText({ buffer });
-      resumeText = parseResult.value || "";
-      if (!resumeText.trim()) {
-        return NextResponse.json(
-          { error: "The uploaded resume seems to be empty." },
-          { status: 400 }
-        );
+
+      const [textResult, htmlResult] = await Promise.all([
+        mammoth.extractRawText({ buffer }),
+        mammoth.convertToHtml({ buffer })
+      ]);
+
+      resumeText = textResult.value ? cleanInputString(textResult.value) : "";
+      resumeHtml = htmlResult.value || "";
+
+      if (!resumeText && !resumeHtml) {
+        return NextResponse.json({ error: "The uploaded resume seems to be empty." }, { status: 400 });
       }
-      // Sanitize extracted resume text for JSON compatibility
-      resumeText = resumeText
-        .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
-        .replace(/\\/g, "\\\\")
-        .replace(/"/g, '\\"')
-        .trim();
     } catch (parseError: any) {
-      return NextResponse.json(
-        { error: `Failed to parse DOCX file: ${parseError.message}` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Failed to parse DOCX file: ${parseError.message}` }, { status: 400 });
     }
 
-    // Retrieve selected job description
     const job = jobOpenings.find((o) => o.id === jobOpeningId);
     if (!job) {
-      return NextResponse.json(
-        { error: "Selected job opening not found." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Selected job opening not found." }, { status: 400 });
     }
 
     const jobDescriptionFull = `
 Title: ${job.title}
 Company: ${job.company}
 Description: ${job.description}
-Responsibilities:
-${job.responsibilities.map((r) => `- ${r}`).join("\n")}
-Skills Required:
-${job.skills
-  .map((s) => `[${s.category || "General"}]:\n${s.items.map((i) => `  - ${i}`).join("\n")}`)
-  .join("\n")}
-Experience Required:
-${job.experience.map((e) => `- ${e}`).join("\n")}
+Responsibilities: ${job.responsibilities.map((r) => `- ${r}`).join("\n")}
+Skills: ${job.skills.map((s) => s.items.join(", ")).join("; ")}
 `;
 
-    // Extract API Key from headers or environment variables
-    const apiKey = req.headers.get("x-llm-api-key") || process.env.LLM_API_KEY || process.env.GROK_API_KEY;
+    const apiKey = req.headers.get("x-llm-api-key") || process.env.LLM_API_KEY || process.env.GROK_API_KEY || process.env.GROQ_API_KEY;
 
     if (!apiKey) {
-      // Return mock screening if no API key is set
       const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
-      return NextResponse.json({
-        ...mockResult,
-        warning: "Running in simulated/mock mode because no LLM_API_KEY was supplied."
-      });
+      const screeningId = `scr-${Date.now()}`;
+      
+      if (sql) {
+        try {
+          await ensureTablesExist();
+          await sql`
+            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text, resume_html)
+            VALUES (${screeningId}, ${name}, ${email}, ${phone}, ${address}, ${Number(age) || 25}, ${currentLocation}, ${jobOpeningId}, ${mockResult.match_score}, ${mockResult.overall_fit}, ${mockResult.strong_matches || []}, ${JSON.stringify(mockResult.gaps_and_questions || [])}, ${"Running in simulated/mock mode because no LLM_API_KEY was supplied."}, ${resumeText}, ${resumeHtml})
+          `;
+        } catch (dbError) { console.error("DB Save failed", dbError); }
+      }
+      return NextResponse.json({ ...mockResult, id: screeningId, resumeText, resumeHtml });
     }
 
     try {
-      let evaluation;
+      let evaluation: any;
       if (apiKey.startsWith("gsk_")) {
-        evaluation = await callGroqAPI(apiKey, resumeText, jobDescriptionFull, {
-          name,
-          email,
-          currentLocation,
-          age,
-        });
+        evaluation = await callGroqAPI(apiKey, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
       } else if (apiKey.startsWith("xai-")) {
-        evaluation = await callGrokAPI(apiKey, resumeText, jobDescriptionFull, {
-          name,
-          email,
-          currentLocation,
-          age,
-        });
+        evaluation = await callGrokAPI(apiKey, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
       } else {
-        evaluation = await callGeminiAPI(apiKey, resumeText, jobDescriptionFull, {
-          name,
-          email,
-          currentLocation,
-          age,
-        });
+        evaluation = await callGeminiAPI(apiKey, resumeText, jobDescriptionFull, { name, email, currentLocation, age });
       }
 
-      // Basic validation of structured output
-      if (
-        typeof evaluation.match_score !== "number" ||
-        !evaluation.overall_fit ||
-        !Array.isArray(evaluation.strong_matches) ||
-        !Array.isArray(evaluation.gaps_and_questions)
-      ) {
-        throw new Error("Invalid response format from LLM API");
-      }
-
-      // Save to database if connected
+      const screeningId = `scr-${Date.now()}`;
       if (sql) {
         try {
           await ensureTablesExist();
-          const screeningId = `scr-${Date.now()}`;
           await sql`
-            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text)
-            VALUES (
-              ${screeningId},
-              ${name},
-              ${email},
-              ${phone},
-              ${address},
-              ${Number(age)},
-              ${currentLocation},
-              ${jobOpeningId},
-              ${evaluation.match_score},
-              ${evaluation.overall_fit},
-              ${evaluation.strong_matches || []},
-              ${JSON.stringify(evaluation.gaps_and_questions || [])},
-              ${evaluation.warning || null},
-              ${resumeText}
-            )
+            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text, resume_html)
+            VALUES (${screeningId}, ${name}, ${email}, ${phone}, ${address}, ${Number(age) || 25}, ${currentLocation}, ${jobOpeningId}, ${evaluation.match_score}, ${evaluation.overall_fit}, ${evaluation.strong_matches || []}, ${JSON.stringify(evaluation.gaps_and_questions || [])}, ${evaluation.warning || null}, ${resumeText}, ${resumeHtml})
           `;
-          evaluation.id = screeningId;
-          evaluation.resumeText = resumeText;
-        } catch (dbError) {
-          console.error("Failed to save screening to database:", dbError);
-        }
+        } catch (dbError) { console.error("DB Save failed", dbError); }
       }
-
-      return NextResponse.json(evaluation);
+      return NextResponse.json({ ...evaluation, id: screeningId, resumeText, resumeHtml });
     } catch (llmError: any) {
-      console.error("LLM API screening failed:", llmError);
-      
-      // Graceful fallback to mock result with error information
       const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
-      
-      // Save fallback mock result to database if connected so history is kept
-      if (sql) {
-        try {
-          await ensureTablesExist();
-          const screeningId = `scr-${Date.now()}`;
-          const warningMsg = `LLM screening failed (${llmError.message}). Showing simulated result instead.`;
-          await sql`
-            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning, resume_text)
-            VALUES (
-              ${screeningId},
-              ${name},
-              ${email},
-              ${phone},
-              ${address},
-              ${Number(age)},
-              ${currentLocation},
-              ${jobOpeningId},
-              ${mockResult.match_score},
-              ${mockResult.overall_fit},
-              ${mockResult.strong_matches || []},
-              ${JSON.stringify(mockResult.gaps_and_questions || [])},
-              ${warningMsg},
-              ${resumeText}
-            )
-          `;
-          mockResult.id = screeningId;
-          mockResult.warning = warningMsg;
-          mockResult.resumeText = resumeText;
-        } catch (dbError) {
-          console.error("Failed to save fallback screening to database:", dbError);
-        }
-      }
-
-      return NextResponse.json({
-        ...mockResult,
-        warning: mockResult.warning || `LLM screening failed (${llmError.message}). Showing simulated result instead.`,
-      });
+      return NextResponse.json({ ...mockResult, resumeText, resumeHtml, warning: `LLM failed: ${llmError.message}` });
     }
   } catch (err: any) {
-    console.error("Server error during screening:", err);
-    return NextResponse.json(
-      { error: "Internal server error during screening workflow." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
 }
 
@@ -595,7 +374,6 @@ export async function GET() {
     try {
       await ensureTablesExist();
       const dbScreenings = await sql`SELECT * FROM screenings ORDER BY screened_at DESC`;
-      
       const formatted = dbScreenings.map((s) => ({
         id: s.id,
         candidateName: s.candidate_name,
@@ -611,12 +389,12 @@ export async function GET() {
         gapsAndQuestions: typeof s.gaps_and_questions === "string" ? JSON.parse(s.gaps_and_questions) : s.gaps_and_questions,
         screenedAt: s.screened_at,
         warning: s.warning || undefined,
-        resumeText: s.resume_text || undefined
+        resumeText: s.resume_text || undefined,
+        resumeHtml: s.resume_html || undefined,
       }));
-
       return NextResponse.json(formatted);
-    } catch (error) {
-      console.error("Failed to fetch screenings from database:", error);
+    } catch (e) {
+      console.error("Failed to fetch screenings:", e);
       return NextResponse.json([]);
     }
   }
@@ -624,22 +402,10 @@ export async function GET() {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!sql) {
-    return NextResponse.json({ success: true, warning: "Deleted only from local state." });
-  }
-
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    if (!id) {
-      return NextResponse.json({ error: "Missing screening ID." }, { status: 400 });
-    }
-
-    await ensureTablesExist();
-    await sql`DELETE FROM screenings WHERE id = ${id}`;
+    if (sql && id) await sql`DELETE FROM screenings WHERE id = ${id}`;
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("Failed to delete screening from database:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  } catch (e) { return NextResponse.json({ error: "Delete failed" }, { status: 500 }); }
 }
