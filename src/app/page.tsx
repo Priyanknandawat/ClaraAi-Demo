@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, ChangeEvent } from "react";
-import { jobOpenings, JobOpening } from "@/data/jobs";
+import { jobOpenings as defaultJobOpenings, JobOpening } from "@/data/jobs";
 
 interface GapQuestion {
   gap: string;
@@ -36,6 +36,15 @@ interface CandidateForm {
   currentLocation: string;
 }
 
+interface JobForm {
+  title: string;
+  company: string;
+  description: string;
+  responsibilitiesText: string;
+  skillsText: string;
+  experienceText: string;
+}
+
 const initialForm: CandidateForm = {
   name: "",
   email: "",
@@ -43,6 +52,15 @@ const initialForm: CandidateForm = {
   address: "",
   age: "",
   currentLocation: ""
+};
+
+const initialJobForm: JobForm = {
+  title: "",
+  company: "",
+  description: "",
+  responsibilitiesText: "",
+  skillsText: "",
+  experienceText: ""
 };
 
 // 3 Mock screenings to pre-populate the dashboard if localstorage is empty
@@ -124,9 +142,10 @@ const defaultMockScreenings: SavedScreening[] = [
 ];
 
 export default function ClaraAiPlatform() {
-  // Navigation: 'dashboard' | 'screenings' | 'screen' | 'candidates' | 'settings'
-  const [activeTab, setActiveTab] = useState<"dashboard" | "screenings" | "screen" | "candidates" | "settings">("dashboard");
+  // Navigation: 'dashboard' | 'screenings' | 'screen' | 'jobs' | 'candidates' | 'settings'
+  const [activeTab, setActiveTab] = useState<"dashboard" | "screenings" | "screen" | "jobs" | "candidates" | "settings">("dashboard");
   const [screenings, setScreenings] = useState<SavedScreening[]>([]);
+  const [jobOpeningsList, setJobOpeningsList] = useState<JobOpening[]>(defaultJobOpenings);
   const [selectedScreeningId, setSelectedScreeningId] = useState<string | null>(null);
 
   // New Screening Form Workflow States: 'form' | 'review' | 'screening'
@@ -138,6 +157,12 @@ export default function ClaraAiPlatform() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  // Job Opening Form workflow
+  const [jobForm, setJobForm] = useState<JobForm>(initialJobForm);
+  const [showAddJobForm, setShowAddJobForm] = useState<boolean>(false);
+  const [jobApiError, setJobApiError] = useState<string | null>(null);
+  const [isJobLoading, setIsJobLoading] = useState<boolean>(false);
+
   // Settings states
   const [tempApiKey, setTempApiKey] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -147,15 +172,46 @@ export default function ClaraAiPlatform() {
   const [filterJobId, setFilterJobId] = useState<string>("all");
   const [filterFit, setFilterFit] = useState<string>("all");
 
-  // Load screenings from LocalStorage on mount
+  // Load database jobs and screenings on mount (with localStorage fallback)
   useEffect(() => {
-    const saved = localStorage.getItem("clara_screenings");
-    if (saved) {
-      setScreenings(JSON.parse(saved));
-    } else {
-      localStorage.setItem("clara_screenings", JSON.stringify(defaultMockScreenings));
-      setScreenings(defaultMockScreenings);
+    async function loadData() {
+      // 1. Fetch dynamic job openings
+      try {
+        const jobsRes = await fetch("/api/jobs");
+        if (jobsRes.ok) {
+          const jobsData = await jobsRes.json();
+          setJobOpeningsList(jobsData);
+        }
+      } catch (e) {
+        console.error("Failed to load jobs from API, using default local data", e);
+      }
+
+      // 2. Fetch screenings
+      try {
+        const screeningsRes = await fetch("/api/screen");
+        if (screeningsRes.ok) {
+          const screeningsData = await screeningsRes.json();
+          if (screeningsData && screeningsData.length > 0) {
+            setScreenings(screeningsData);
+            localStorage.setItem("clara_screenings", JSON.stringify(screeningsData));
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load screenings from API, falling back to local storage", e);
+      }
+
+      // LocalStorage fallback if API returned empty or failed
+      const saved = localStorage.getItem("clara_screenings");
+      if (saved) {
+        setScreenings(JSON.parse(saved));
+      } else {
+        localStorage.setItem("clara_screenings", JSON.stringify(defaultMockScreenings));
+        setScreenings(defaultMockScreenings);
+      }
     }
+
+    loadData();
 
     const savedKey = localStorage.getItem("clara_temp_key") || "";
     setTempApiKey(savedKey);
@@ -186,6 +242,11 @@ export default function ClaraAiPlatform() {
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleJobInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setJobForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -261,9 +322,9 @@ export default function ClaraAiPlatform() {
       }
 
       // Add to local screenings list
-      const selectedJob = jobOpenings.find(j => j.id === selectedJobId);
+      const selectedJob = jobOpeningsList.find(j => j.id === selectedJobId);
       const newScreening: SavedScreening = {
-        id: `scr-${Date.now()}`,
+        id: data.id || `scr-${Date.now()}`,
         candidateName: form.name,
         candidateEmail: form.email,
         candidatePhone: form.phone,
@@ -306,6 +367,55 @@ export default function ClaraAiPlatform() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Add Job Opening Action
+  const handleAddJobOpening = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!jobForm.title.trim() || !jobForm.company.trim() || !jobForm.description.trim()) return;
+
+    setIsJobLoading(true);
+    setJobApiError(null);
+
+    // Format list inputs from lines
+    const formatList = (text: string) => text.split("\n").map(l => l.trim()).filter(l => l !== "");
+    const responsibilities = formatList(jobForm.responsibilitiesText);
+    const experience = formatList(jobForm.experienceText);
+    const skillsList = formatList(jobForm.skillsText);
+
+    // Dynamic grouping of skills for compatibility
+    const skills = [{ category: "Required Core Skills", items: skillsList }];
+
+    try {
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: jobForm.title,
+          company: jobForm.company,
+          description: jobForm.description,
+          responsibilities,
+          skills,
+          experience,
+          offers: []
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create job opening.");
+      }
+
+      setJobOpeningsList([data, ...jobOpeningsList]);
+      setJobForm(initialJobForm);
+      setShowAddJobForm(false);
+      alert(data.warning || "Job opening added successfully!");
+    } catch (error: any) {
+      console.error(error);
+      setJobApiError(error.message || "Failed to save job opening.");
+    } finally {
+      setIsJobLoading(false);
+    }
+  };
+
   // Metrics Helpers
   const getAverageScore = () => {
     if (screenings.length === 0) return 0;
@@ -336,9 +446,19 @@ export default function ClaraAiPlatform() {
     }
   };
 
-  const handleDeleteScreening = (id: string, e: React.MouseEvent) => {
+  const handleDeleteScreening = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this screening record?")) {
+      try {
+        const res = await fetch(`/api/screen?id=${id}`, { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to delete from database");
+        }
+      } catch (error) {
+        console.error("API deletion failed, clearing only locally", error);
+      }
+
       const filtered = screenings.filter(s => s.id !== id);
       saveScreeningsToStorage(filtered);
       if (selectedScreeningId === id) {
@@ -387,7 +507,7 @@ export default function ClaraAiPlatform() {
 
       if (existing) {
         existing.applicationsCount += 1;
-        // Keep the latest record (first in the list is usually latest due to sort order)
+        // Keep the latest record
         if (new Date(s.screenedAt) > new Date(existing.screenings[0].screenedAt)) {
           existing.latestRole = s.jobTitle;
           existing.latestScore = s.matchScore;
@@ -410,13 +530,13 @@ export default function ClaraAiPlatform() {
     return Array.from(candidatesMap.values());
   };
 
-  const selectedJob = jobOpenings.find(j => j.id === selectedJobId);
+  const selectedJob = jobOpeningsList.find(j => j.id === selectedJobId);
   const activeScreening = screenings.find(s => s.id === selectedScreeningId);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased">
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-50 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="mx-auto max-w-5xl px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="cursor-pointer" onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -443,6 +563,12 @@ export default function ClaraAiPlatform() {
               className={`hover:text-slate-950 transition-colors ${activeTab === "screen" ? "text-blue-600 font-bold" : ""}`}
             >
               Screen Candidate
+            </button>
+            <button 
+              onClick={() => { setActiveTab("jobs"); setSelectedScreeningId(null); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "jobs" ? "text-blue-600 font-bold" : ""}`}
+            >
+              Job Openings
             </button>
             <button 
               onClick={() => { setActiveTab("candidates"); setSelectedScreeningId(null); }}
@@ -491,7 +617,7 @@ export default function ClaraAiPlatform() {
               </div>
               <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Positions</span>
-                <span className="text-2xl font-extrabold text-slate-950">{jobOpenings.length}</span>
+                <span className="text-2xl font-extrabold text-slate-950">{jobOpeningsList.length}</span>
                 <span className="text-[9px] text-slate-500 mt-1">Recruitment pipelines</span>
               </div>
             </div>
@@ -523,7 +649,7 @@ export default function ClaraAiPlatform() {
                     <tbody className="divide-y divide-slate-100">
                       {screenings.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-5 py-8 text-center text-slate-400 italic">No screenings recorded yet. Click "Screen Candidate" to start!</td>
+                          <td colSpan={4} className="px-5 py-8 text-center text-slate-400 italic">No screenings recorded yet. Click \"Screen Candidate\" to start!</td>
                         </tr>
                       ) : (
                         screenings.slice(0, 5).map((s) => (
@@ -534,7 +660,7 @@ export default function ClaraAiPlatform() {
                           >
                             <td className="px-5 py-3.5">
                               <div className="flex flex-col">
-                                <span className="font-semibold text-slate-950 group-hover:text-blue-600 transition-colors">{s.candidateName}</span>
+                                <span className="font-semibold text-slate-955 group-hover:text-blue-600 transition-colors">{s.candidateName}</span>
                                 <span className="text-[10px] text-slate-500">{s.candidateLocation}</span>
                               </div>
                             </td>
@@ -574,17 +700,25 @@ export default function ClaraAiPlatform() {
               {/* Right Column: Roles Quick Summary list */}
               <div className="md:col-span-4 flex flex-col gap-6">
                 <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-4">
-                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Screening Openings</h3>
+                  <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900">Active Pipelines</h3>
+                    <button 
+                      onClick={() => setActiveTab("jobs")}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-bold"
+                    >
+                      Manage
+                    </button>
+                  </div>
                   <div className="flex flex-col gap-4">
-                    {jobOpenings.map((job) => {
+                    {jobOpeningsList.slice(0, 4).map((job) => {
                       const countForJob = screenings.filter(s => s.jobId === job.id).length;
                       return (
                         <div key={job.id} className="flex items-center justify-between border-b border-slate-50 pb-3 last:border-0 last:pb-0">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-xs font-semibold text-slate-900 leading-tight">{job.title}</span>
-                            <span className="text-[10px] text-slate-400">{job.company}</span>
+                          <div className="flex flex-col gap-0.5 pr-2 truncate">
+                            <span className="text-xs font-semibold text-slate-900 truncate leading-tight">{job.title}</span>
+                            <span className="text-[10px] text-slate-400 truncate">{job.company}</span>
                           </div>
-                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold">
+                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold shrink-0">
                             {countForJob} screened
                           </span>
                         </div>
@@ -593,18 +727,15 @@ export default function ClaraAiPlatform() {
                   </div>
                 </div>
                 
-                {/* Simulated Mode Warning Banner (if no API keys setup or local mock is active) */}
+                {/* Database Connection Info panel */}
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex flex-col gap-2">
-                  <span className="text-xs font-bold text-blue-800">API Key & Testing Settings</span>
+                  <span className="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Database Connection Status
+                  </span>
                   <p className="text-[10px] text-blue-600 leading-relaxed">
-                    You can manage your API credentials directly in the settings page. By default, the application runs on secure serverless logic, falling back to rich simulated reports if keys are absent.
+                    If Vercel's `DATABASE_URL` is set, listings automatically read/write to your live Postgres database. Otherwise, the app falls back to secure localStorage.
                   </p>
-                  <button 
-                    onClick={() => setActiveTab("settings")}
-                    className="text-[10px] text-blue-700 hover:underline font-bold text-left mt-1"
-                  >
-                    Manage Settings →
-                  </button>
                 </div>
               </div>
 
@@ -638,7 +769,7 @@ export default function ClaraAiPlatform() {
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Candidate Screening Result</span>
-                    <h2 className="text-xl font-bold text-slate-950">{activeScreening.candidateName}</h2>
+                    <h2 className="text-xl font-bold text-slate-955">{activeScreening.candidateName}</h2>
                     <p className="text-xs text-slate-500">
                       {activeScreening.jobTitle} — <span className="font-semibold text-slate-700">{activeScreening.jobCompany}</span>
                     </p>
@@ -744,7 +875,7 @@ export default function ClaraAiPlatform() {
                 </div>
 
                 {/* Filter header block */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
                   <div className="w-full md:w-72 relative">
                     <input 
                       type="text" 
@@ -765,7 +896,7 @@ export default function ClaraAiPlatform() {
                         className="py-1.5 px-3 border border-slate-300 bg-white rounded-lg text-xs outline-none focus:border-blue-500"
                       >
                         <option value="all">All openings</option>
-                        {jobOpenings.map(job => (
+                        {jobOpeningsList.map(job => (
                           <option key={job.id} value={job.id}>{job.title}</option>
                         ))}
                       </select>
@@ -817,7 +948,7 @@ export default function ClaraAiPlatform() {
                             >
                               <td className="px-5 py-4">
                                 <div className="flex flex-col">
-                                  <span className="font-semibold text-slate-950 group-hover:text-blue-600 transition-colors">{s.candidateName}</span>
+                                  <span className="font-semibold text-slate-955 group-hover:text-blue-600 transition-colors">{s.candidateName}</span>
                                   <span className="text-[10px] text-slate-400">{s.candidateEmail}</span>
                                 </div>
                               </td>
@@ -1044,7 +1175,7 @@ export default function ClaraAiPlatform() {
                       className="py-2 px-3 border border-slate-300 bg-white rounded-lg text-xs outline-none focus:border-blue-500 transition-all"
                     >
                       <option value="">-- Choose target opening --</option>
-                      {jobOpenings.map(job => (
+                      {jobOpeningsList.map(job => (
                         <option key={job.id} value={job.id}>{job.title} ({job.company})</option>
                       ))}
                     </select>
@@ -1083,7 +1214,7 @@ export default function ClaraAiPlatform() {
                   </div>
                   <div className="py-3 grid grid-cols-3 gap-4">
                     <span className="font-semibold text-slate-400">Phone</span>
-                    <span className="col-span-2 font-medium text-slate-900">{form.phone}</span>
+                    <span className="col-span-2 font-medium text-slate-950">{form.phone}</span>
                   </div>
                   <div className="py-3 grid grid-cols-3 gap-4">
                     <span className="font-semibold text-slate-400">Location</span>
@@ -1148,7 +1279,151 @@ export default function ClaraAiPlatform() {
           </div>
         )}
 
-        {/* TAB 4: GLOBAL CANDIDATES VIEW */}
+        {/* TAB 4: JOB OPENINGS (MANAGE / ADD JDS) */}
+        {activeTab === "jobs" && (
+          <div className="flex flex-col gap-6 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Active Job Openings</h2>
+                <p className="text-xs text-slate-500">Pipeline opportunities for candidate resume alignment evaluations.</p>
+              </div>
+              <button
+                onClick={() => setShowAddJobForm(!showAddJobForm)}
+                className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+              >
+                {showAddJobForm ? "Cancel" : "Add New Opening"}
+              </button>
+            </div>
+
+            {/* ADD JOB OPENING FORM CARD */}
+            {showAddJobForm && (
+              <form onSubmit={handleAddJobOpening} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4 animate-fadeIn">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">Create Target Job Opening</h3>
+                
+                {jobApiError && (
+                  <p className="text-xs text-rose-600 font-semibold">{jobApiError}</p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Role Title</label>
+                    <input 
+                      type="text" 
+                      name="title"
+                      required
+                      placeholder="e.g. Sales Associate"
+                      value={jobForm.title}
+                      onChange={handleJobInputChange}
+                      className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Company Name</label>
+                    <input 
+                      type="text" 
+                      name="company"
+                      required
+                      placeholder="e.g. Acme Corp"
+                      value={jobForm.company}
+                      onChange={handleJobInputChange}
+                      className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Role Description Summary</label>
+                  <textarea 
+                    name="description"
+                    required
+                    rows={3}
+                    placeholder="Provide a general overview of the role and team objectives..."
+                    value={jobForm.description}
+                    onChange={handleJobInputChange}
+                    className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 font-normal resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Key Responsibilities (One per line)</label>
+                    <textarea 
+                      name="responsibilitiesText"
+                      rows={4}
+                      placeholder="e.g. Manage pipeline metrics&#10;Present weekly slide decks"
+                      value={jobForm.responsibilitiesText}
+                      onChange={handleJobInputChange}
+                      className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 font-normal resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Required Skills (One per line)</label>
+                    <textarea 
+                      name="skillsText"
+                      rows={4}
+                      placeholder="e.g. Advanced Excel&#10;PowerPoint design"
+                      value={jobForm.skillsText}
+                      onChange={handleJobInputChange}
+                      className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 font-normal resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Experience Needed (One per line)</label>
+                    <textarea 
+                      name="experienceText"
+                      rows={4}
+                      placeholder="e.g. 2-3 years at Tier-1 firm&#10;Consulting background preferred"
+                      value={jobForm.experienceText}
+                      onChange={handleJobInputChange}
+                      className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 font-normal resize-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isJobLoading}
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm"
+                >
+                  {isJobLoading ? "Saving Job..." : "Save Job Opening"}
+                </button>
+              </form>
+            )}
+
+            {/* JOB OPENINGS LISTING GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {jobOpeningsList.map(job => {
+                const jobScreeningsCount = screenings.filter(s => s.jobId === job.id).length;
+                return (
+                  <div key={job.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4 hover:border-blue-300 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{job.company}</span>
+                        <h4 className="text-sm font-bold text-slate-900 leading-snug">{job.title}</h4>
+                      </div>
+                      <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shrink-0">
+                        {jobScreeningsCount} screenings
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">{job.description}</p>
+
+                    <div className="flex flex-wrap gap-1.5 border-t border-slate-50 pt-3">
+                      {job.skills?.[0]?.items?.slice(0, 3).map((skill, idx) => (
+                        <span key={idx} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        )}
+
+        {/* TAB 5: GLOBAL CANDIDATES VIEW */}
         {activeTab === "candidates" && (
           <div className="flex flex-col gap-6 animate-fadeIn">
             <div>
@@ -1212,7 +1487,7 @@ export default function ClaraAiPlatform() {
           </div>
         )}
 
-        {/* TAB 5: SETTINGS VIEW */}
+        {/* TAB 6: SETTINGS VIEW */}
         {activeTab === "settings" && (
           <div className="mx-auto max-w-xl flex flex-col gap-8 animate-fadeIn">
             <div>
@@ -1261,7 +1536,7 @@ export default function ClaraAiPlatform() {
 
             {/* Database reset settings card */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Workspace Reset Actions</h3>
+              <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Workspace Reset Actions</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Clear all candidate evaluations saved in this browser and restore the pre-populated dashboard demonstration profiles.
               </p>

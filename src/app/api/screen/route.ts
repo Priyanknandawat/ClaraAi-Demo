@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { jobOpenings } from "@/data/jobs";
+import { sql, ensureTablesExist } from "@/lib/db";
 
 // Abstraction for Gemini API calling
 async function callGeminiAPI(
@@ -479,15 +480,76 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
         throw new Error("Invalid response format from LLM API");
       }
 
+      // Save to database if connected
+      if (sql) {
+        try {
+          await ensureTablesExist();
+          const screeningId = `scr-${Date.now()}`;
+          await sql`
+            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning)
+            VALUES (
+              ${screeningId},
+              ${name},
+              ${email},
+              ${phone},
+              ${address},
+              ${Number(age)},
+              ${currentLocation},
+              ${jobOpeningId},
+              ${evaluation.match_score},
+              ${evaluation.overall_fit},
+              ${evaluation.strong_matches || []},
+              ${JSON.stringify(evaluation.gaps_and_questions || [])},
+              ${evaluation.warning || null}
+            )
+          `;
+          evaluation.id = screeningId;
+        } catch (dbError) {
+          console.error("Failed to save screening to database:", dbError);
+        }
+      }
+
       return NextResponse.json(evaluation);
     } catch (llmError: any) {
       console.error("LLM API screening failed:", llmError);
       
       // Graceful fallback to mock result with error information
       const mockResult = getMockScreeningResult(jobOpeningId, name, resumeText);
+      
+      // Save fallback mock result to database if connected so history is kept
+      if (sql) {
+        try {
+          await ensureTablesExist();
+          const screeningId = `scr-${Date.now()}`;
+          const warningMsg = `LLM screening failed (${llmError.message}). Showing simulated result instead.`;
+          await sql`
+            INSERT INTO screenings (id, candidate_name, candidate_email, candidate_phone, candidate_address, candidate_age, candidate_location, job_id, match_score, overall_fit, strong_matches, gaps_and_questions, warning)
+            VALUES (
+              ${screeningId},
+              ${name},
+              ${email},
+              ${phone},
+              ${address},
+              ${Number(age)},
+              ${currentLocation},
+              ${jobOpeningId},
+              ${mockResult.match_score},
+              ${mockResult.overall_fit},
+              ${mockResult.strong_matches || []},
+              ${JSON.stringify(mockResult.gaps_and_questions || [])},
+              ${warningMsg}
+            )
+          `;
+          mockResult.id = screeningId;
+          mockResult.warning = warningMsg;
+        } catch (dbError) {
+          console.error("Failed to save fallback screening to database:", dbError);
+        }
+      }
+
       return NextResponse.json({
         ...mockResult,
-        warning: `LLM screening failed (${llmError.message}). Showing simulated result instead.`,
+        warning: mockResult.warning || `LLM screening failed (${llmError.message}). Showing simulated result instead.`,
       });
     }
   } catch (err: any) {
@@ -496,5 +558,58 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
       { error: "Internal server error during screening workflow." },
       { status: 500 }
     );
+  }
+}
+
+export async function GET() {
+  if (sql) {
+    try {
+      await ensureTablesExist();
+      const dbScreenings = await sql`SELECT * FROM screenings ORDER BY screened_at DESC`;
+      
+      const formatted = dbScreenings.map((s) => ({
+        id: s.id,
+        candidateName: s.candidate_name,
+        candidateEmail: s.candidate_email,
+        candidatePhone: s.candidate_phone,
+        candidateAddress: s.candidate_address,
+        candidateAge: s.candidate_age,
+        candidateLocation: s.candidate_location,
+        jobId: s.job_id,
+        matchScore: s.match_score,
+        overallFit: s.overall_fit,
+        strongMatches: s.strong_matches || [],
+        gapsAndQuestions: typeof s.gaps_and_questions === "string" ? JSON.parse(s.gaps_and_questions) : s.gaps_and_questions,
+        screenedAt: s.screened_at,
+        warning: s.warning || undefined
+      }));
+
+      return NextResponse.json(formatted);
+    } catch (error) {
+      console.error("Failed to fetch screenings from database:", error);
+      return NextResponse.json([]);
+    }
+  }
+  return NextResponse.json([]);
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!sql) {
+    return NextResponse.json({ success: true, warning: "Deleted only from local state." });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "Missing screening ID." }, { status: 400 });
+    }
+
+    await ensureTablesExist();
+    await sql`DELETE FROM screenings WHERE id = ${id}`;
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Failed to delete screening from database:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
