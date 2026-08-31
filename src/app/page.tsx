@@ -1076,257 +1076,6 @@ export default function ClaraAiPlatform() {
                 ))
               )}
             </div>
-
-            {/* CANDIDATE ROLE & APPLICATION MODAL (SOLID OPAQUE WHITE DIALOG OVERLAY) */}
-            {candidatePortalJob && (
-              <div 
-                className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) setCandidatePortalJob(null);
-                }}
-              >
-                <div className="bg-white w-full max-w-4xl rounded-3xl shadow-[0_25px_90px_rgba(0,0,0,0.35)] animate-scaleIn border border-slate-200 max-h-[90vh] flex flex-col overflow-hidden my-auto">
-                  
-                  {/* Modal Header */}
-                  <div className="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
-                    <div>
-                      <span className="text-xs font-bold text-blue-600">{candidatePortalJob.company}</span>
-                      <h2 className="text-xl sm:text-2xl font-bold text-slate-950">{candidatePortalJob.title}</h2>
-                    </div>
-                    <button 
-                      onClick={() => setCandidatePortalJob(null)}
-                      className="w-9 h-9 rounded-full bg-white hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-500 font-bold transition-colors shadow-sm"
-                      aria-label="Close dialog"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  {/* Modal Body */}
-                  <div className="p-6 sm:p-8 overflow-y-auto flex-1 bg-white">
-                    {candidateAppliedSuccess ? (
-                      <div className="py-12 text-center space-y-4 animate-scaleIn">
-                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-                          ✓
-                        </div>
-                        <h3 className="text-2xl font-bold text-slate-900">Application Submitted!</h3>
-                        <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                          Thank you for applying for the <span className="font-semibold text-slate-900">{candidatePortalJob.title}</span> position at {candidatePortalJob.company}. Our recruitment intelligence system has received your profile.
-                        </p>
-                        <button
-                          onClick={() => setCandidatePortalJob(null)}
-                          className="mt-4 px-6 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-all shadow-md"
-                        >
-                          Browse Other Openings
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        
-                        {/* Left Column: Role Details & Requirements */}
-                        <div className="lg:col-span-5 space-y-6 lg:border-r lg:border-slate-100 lg:pr-6">
-                          <div className="space-y-2">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">About the Role</h4>
-                            <p className="text-xs text-slate-700 leading-relaxed font-normal bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                              {candidatePortalJob.description}
-                            </p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Key Responsibilities</h4>
-                            <ul className="space-y-2">
-                              {candidatePortalJob.responsibilities.map((item, idx) => (
-                                <li key={idx} className="flex gap-2 text-xs text-slate-700 items-start">
-                                  <span className="text-blue-500 font-bold shrink-0">•</span>
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-1">
-                            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Hiring Process</span>
-                            <p className="text-[11px] text-slate-600">
-                              Applications are screened by Clara AI within 24 hours. Top matches are fast-tracked directly to partner interview rounds.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Right Column: Application Form */}
-                        <div className="lg:col-span-7 space-y-5">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                            <h3 className="text-sm font-bold text-slate-950">Candidate Application Form</h3>
-                            <span className="text-[10px] text-slate-400 font-medium">* Required fields</span>
-                          </div>
-
-                          <form onSubmit={handleCandidatePortalApply} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                  Full Name <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  name="name"
-                                  value={candidateForm.name}
-                                  onChange={handleCandidateFormChange}
-                                  placeholder="e.g. Priyank Nandawat"
-                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                    candidateFormErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                                  }`}
-                                />
-                                {candidateFormErrors.name && (
-                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.name}</p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                  Email Address <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <input
-                                  type="email"
-                                  name="email"
-                                  value={candidateForm.email}
-                                  onChange={handleCandidateFormChange}
-                                  placeholder="priyank@example.com"
-                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                    candidateFormErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                                  }`}
-                                />
-                                {candidateFormErrors.email && (
-                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.email}</p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                  Phone Number (Digits only) <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <input
-                                  type="tel"
-                                  name="phone"
-                                  value={candidateForm.phone}
-                                  onChange={handleCandidateFormChange}
-                                  placeholder="+91 93588 80813"
-                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                    candidateFormErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                                  }`}
-                                />
-                                {candidateFormErrors.phone && (
-                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.phone}</p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                  Current City <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  name="currentLocation"
-                                  value={candidateForm.currentLocation}
-                                  onChange={handleCandidateFormChange}
-                                  placeholder="e.g. Udaipur / Bengaluru"
-                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                    candidateFormErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                                  }`}
-                                />
-                                {candidateFormErrors.location && (
-                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.location}</p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                  Age (18–99) <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <input
-                                  type="number"
-                                  min="18"
-                                  max="99"
-                                  name="age"
-                                  value={candidateForm.age}
-                                  onChange={handleCandidateFormChange}
-                                  placeholder="e.g. 24"
-                                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
-                                    candidateFormErrors.age ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
-                                  }`}
-                                />
-                                {candidateFormErrors.age && (
-                                  <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.age}</p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                  Residential Address
-                                </label>
-                                <input
-                                  type="text"
-                                  name="address"
-                                  value={candidateForm.address}
-                                  onChange={handleCandidateFormChange}
-                                  placeholder="Optional address details"
-                                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Resume Upload Box */}
-                            <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                Upload Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
-                              </label>
-                              <div className={`p-5 rounded-2xl border-2 border-dashed transition-colors text-center cursor-pointer relative ${
-                                candidateFormErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
-                              }`}>
-                                <input
-                                  type="file"
-                                  accept=".docx"
-                                  ref={candidateFileInputRef}
-                                  onChange={handleCandidateFileChange}
-                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                />
-                                <div className="space-y-1">
-                                  <p className="text-xs font-semibold text-slate-800">
-                                    {candidateResumeFile ? `Selected: ${candidateResumeFile.name}` : "Click or drag & drop your .docx resume here"}
-                                  </p>
-                                  <p className="text-[10px] text-slate-500">Microsoft Word (.docx) format up to 5MB</p>
-                                </div>
-                              </div>
-                              {candidateFormErrors.file && (
-                                <p className="text-[10px] text-rose-500 font-medium mt-1.5">{candidateFormErrors.file}</p>
-                              )}
-                            </div>
-
-                            <div className="pt-3 flex items-center justify-end gap-3">
-                              <button
-                                type="button"
-                                onClick={() => setCandidatePortalJob(null)}
-                                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                disabled={candidateApplying}
-                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
-                              >
-                                {candidateApplying ? "Analyzing & Submitting..." : "Submit Application →"}
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-            )}
-
           </div>
         )}
 
@@ -2398,6 +2147,256 @@ export default function ClaraAiPlatform() {
           </div>
         </div>
       </footer>
+
+      {/* TOP-LEVEL CANDIDATE ROLE & APPLICATION MODAL (ESCAPE STACKING CONTEXTS, COVERS EVERYTHING) */}
+      {candidatePortalJob && (
+        <div 
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCandidatePortalJob(null);
+          }}
+        >
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-[0_25px_90px_rgba(0,0,0,0.6)] border border-slate-200 max-h-[88vh] flex flex-col overflow-hidden my-auto relative">
+            
+            {/* Modal Header */}
+            <div className="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <div>
+                <span className="text-xs font-bold text-blue-600">{candidatePortalJob.company}</span>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-950">{candidatePortalJob.title}</h2>
+              </div>
+              <button 
+                onClick={() => setCandidatePortalJob(null)}
+                className="w-9 h-9 rounded-full bg-white hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-700 font-bold transition-colors shadow-sm"
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto flex-1 bg-white">
+              {candidateAppliedSuccess ? (
+                <div className="py-12 text-center space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                    ✓
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900">Application Submitted!</h3>
+                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                    Thank you for applying for the <span className="font-semibold text-slate-900">{candidatePortalJob.title}</span> position at {candidatePortalJob.company}. Our recruitment intelligence system has received your profile.
+                  </p>
+                  <button
+                    onClick={() => setCandidatePortalJob(null)}
+                    className="mt-4 px-6 py-2.5 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition-all shadow-md"
+                  >
+                    Browse Other Openings
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  
+                  {/* Left Column: Role Details & Requirements */}
+                  <div className="lg:col-span-5 space-y-6 lg:border-r lg:border-slate-100 lg:pr-6">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">About the Role</h4>
+                      <p className="text-xs text-slate-700 leading-relaxed font-normal bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        {candidatePortalJob.description}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Key Responsibilities</h4>
+                      <ul className="space-y-2">
+                        {candidatePortalJob.responsibilities.map((item, idx) => (
+                          <li key={idx} className="flex gap-2 text-xs text-slate-700 items-start">
+                            <span className="text-blue-500 font-bold shrink-0">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-1">
+                      <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Hiring Process</span>
+                      <p className="text-[11px] text-slate-600">
+                        Applications are screened by Clara AI within 24 hours. Top matches are fast-tracked directly to partner interview rounds.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Application Form */}
+                  <div className="lg:col-span-7 space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h3 className="text-sm font-bold text-slate-950">Candidate Application Form</h3>
+                      <span className="text-[10px] text-slate-400 font-medium">* Required fields</span>
+                    </div>
+
+                    <form onSubmit={handleCandidatePortalApply} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Full Name <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={candidateForm.name}
+                            onChange={handleCandidateFormChange}
+                            placeholder="e.g. Priyank Nandawat"
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                              candidateFormErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                            }`}
+                          />
+                          {candidateFormErrors.name && (
+                            <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.name}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Email Address <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={candidateForm.email}
+                            onChange={handleCandidateFormChange}
+                            placeholder="priyank@example.com"
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                              candidateFormErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                            }`}
+                          />
+                          {candidateFormErrors.email && (
+                            <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.email}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Phone Number (Digits only) <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={candidateForm.phone}
+                            onChange={handleCandidateFormChange}
+                            placeholder="+91 93588 80813"
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                              candidateFormErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                            }`}
+                          />
+                          {candidateFormErrors.phone && (
+                            <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.phone}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Current City <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="currentLocation"
+                            value={candidateForm.currentLocation}
+                            onChange={handleCandidateFormChange}
+                            placeholder="e.g. Udaipur / Bengaluru"
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                              candidateFormErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                            }`}
+                          />
+                          {candidateFormErrors.location && (
+                            <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.location}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Age (18–99) <span className="text-rose-500 font-bold">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="18"
+                            max="99"
+                            name="age"
+                            value={candidateForm.age}
+                            onChange={handleCandidateFormChange}
+                            placeholder="e.g. 24"
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
+                              candidateFormErrors.age ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
+                            }`}
+                          />
+                          {candidateFormErrors.age && (
+                            <p className="text-[10px] text-rose-500 font-medium mt-1">{candidateFormErrors.age}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Residential Address
+                          </label>
+                          <input
+                            type="text"
+                            name="address"
+                            value={candidateForm.address}
+                            onChange={handleCandidateFormChange}
+                            placeholder="Optional address details"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:border-blue-500 bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Resume Upload Box */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Upload Resume (.docx format) <span className="text-rose-500 font-bold">*</span>
+                        </label>
+                        <div className={`p-5 rounded-2xl border-2 border-dashed transition-colors text-center cursor-pointer relative ${
+                          candidateFormErrors.file ? "border-rose-400 bg-rose-50/20" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
+                        }`}>
+                          <input
+                            type="file"
+                            accept=".docx"
+                            ref={candidateFileInputRef}
+                            onChange={handleCandidateFileChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          />
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-slate-800">
+                              {candidateResumeFile ? `Selected: ${candidateResumeFile.name}` : "Click or drag & drop your .docx resume here"}
+                            </p>
+                            <p className="text-[10px] text-slate-500">Microsoft Word (.docx) format up to 5MB</p>
+                          </div>
+                        </div>
+                        {candidateFormErrors.file && (
+                          <p className="text-[10px] text-rose-500 font-medium mt-1.5">{candidateFormErrors.file}</p>
+                        )}
+                      </div>
+
+                      <div className="pt-3 flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setCandidatePortalJob(null)}
+                          className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={candidateApplying}
+                          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
+                        >
+                          {candidateApplying ? "Analyzing & Submitting..." : "Submit Application →"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
