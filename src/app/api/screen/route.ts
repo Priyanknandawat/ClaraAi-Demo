@@ -91,6 +91,86 @@ ${resumeText}`;
   return JSON.parse(rawContent);
 }
 
+// Abstraction for Groq API calling (groq.com)
+async function callGroqAPI(
+  apiKey: string,
+  resumeText: string,
+  jobDescription: string,
+  candidateDetails: any
+): Promise<any> {
+  const modelName = "llama-3.3-70b-versatile";
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+
+  const systemPrompt = `You are an expert technical recruiter evaluating a candidate for a specific job opening.
+Your job is to compare the candidate's resume against the job description requirements and provide an objective, evidence-based evaluation.
+
+RULES:
+1. Evaluate ONLY based on the provided resume and job description. Do not invent any credentials, experience, or qualifications.
+2. Distinguish explicit evidence from assumptions. Identify uncertainty where information is missing or unclear.
+3. Never treat missing information as proof that the candidate lacks a skill. Simply identify it as a gap or area of uncertainty.
+4. STRICT COMPLIANCE: Do NOT use protected or sensitive personal characteristics (such as Age, Gender, Race, Religion, Disability, Marital Status) for candidate scoring or evaluation. These details might be provided in the candidate info, but they must NOT influence the match score or candidate fit summary in any way.
+5. Avoid overly enthusiastic or marketing-like language. Be objective, calm, professional, and recruiter-focused.
+6. Favor concrete evidence-based statements (e.g., "Candidate has 3 years of Excel data analysis, which matches the data manipulation requirement") over generic assertions.
+7. Return a structured JSON response matching the required shape.
+
+Required JSON Output Format:
+{
+  "match_score": <number 0-100 based on alignment with job requirements>,
+  "overall_fit": "<2-4 sentences explaining how well the candidate aligns with the role, highlighting key experiences>",
+  "strong_matches": [
+    "<Concrete strength 1 with specific resume evidence>",
+    "<Concrete strength 2 with specific resume evidence>",
+    "<Concrete strength 3 with specific resume evidence>"
+  ],
+  "gaps_and_questions": [
+    {
+      "gap": "<Uncertainty or missing evidence in resume>",
+      "question": "<Specific, actionable recruiter follow-up question about this gap>"
+    }
+  ]
+}`;
+
+  const userPrompt = `Candidate Name: ${candidateDetails.name}
+Candidate Location: ${candidateDetails.currentLocation}
+Candidate Email: ${candidateDetails.email}
+
+Job Description:
+${jobDescription}
+
+Candidate Resume Text:
+${resumeText}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: modelName,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const rawContent = data.choices?.[0]?.message?.content;
+  if (!rawContent) {
+    throw new Error("Empty response from Groq API");
+  }
+
+  return JSON.parse(rawContent);
+}
+
 // Abstraction for Grok API calling
 async function callGrokAPI(
   apiKey: string,
@@ -338,7 +418,14 @@ ${job.experience.map((e) => `- ${e}`).join("\n")}
 
     try {
       let evaluation;
-      if (apiKey.startsWith("xai-")) {
+      if (apiKey.startsWith("gsk_")) {
+        evaluation = await callGroqAPI(apiKey, resumeText, jobDescriptionFull, {
+          name,
+          email,
+          currentLocation,
+          age,
+        });
+      } else if (apiKey.startsWith("xai-")) {
         evaluation = await callGrokAPI(apiKey, resumeText, jobDescriptionFull, {
           name,
           email,
