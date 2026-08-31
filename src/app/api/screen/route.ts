@@ -8,15 +8,86 @@ function parseJsonSafely(text: string): any {
     throw new Error("Empty response content from AI provider");
   }
 
-  let cleaned = text.trim();
-  // Remove markdown code blocks if wrapped (```json ... ``` or ``` ...)
-  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  // 1. Direct parse try first
+  try {
+    return JSON.parse(text);
+  } catch {}
 
-  // If extra text surrounds the JSON object, extract substring from first { to last }
+  // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/```(?:json)?([\s\S]*?)```/gi, "$1").trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {}
+
+  // 3. Precise balanced brace extractor
+  const startIdx = cleaned.indexOf("{");
+  if (startIdx !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    let endIdx = -1;
+
+    for (let i = startIdx; i < cleaned.length; i++) {
+      const char = cleaned[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (!inString) {
+        if (char === "{") {
+          depth++;
+        } else if (char === "}") {
+          depth--;
+          if (depth === 0) {
+            endIdx = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (endIdx !== -1) {
+      const jsonCandidate = cleaned.slice(startIdx, endIdx + 1);
+      try {
+        return JSON.parse(jsonCandidate);
+      } catch {
+        // Attempt minor repairs: remove trailing commas before } or ]
+        const repaired = jsonCandidate
+          .replace(/,\s*([}\]])/g, "$1")
+          .replace(/[\u0000-\u001F]+/g, (match) => (match.includes("\n") ? "\n" : " "));
+        try {
+          return JSON.parse(repaired);
+        } catch {}
+      }
+    }
+  }
+
+  // 4. Fallback: slice from first { to last }
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch {}
+    const repaired = candidate
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/[\u0000-\u001F]+/g, (match) => (match.includes("\n") ? "\n" : " "));
+    return JSON.parse(repaired);
   }
 
   return JSON.parse(cleaned);
@@ -178,6 +249,7 @@ ${resumeText}`;
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          response_format: { type: "json_object" },
           temperature: 0.1,
         }),
       });
