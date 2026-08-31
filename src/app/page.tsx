@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, ChangeEvent } from "react";
+import React, { useState, useEffect, useRef, ChangeEvent } from "react";
 import { jobOpenings, JobOpening } from "@/data/jobs";
 
 interface GapQuestion {
@@ -8,11 +8,22 @@ interface GapQuestion {
   question: string;
 }
 
-interface ScreeningResult {
-  match_score: number;
-  overall_fit: string;
-  strong_matches: string[];
-  gaps_and_questions: GapQuestion[];
+interface SavedScreening {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone: string;
+  candidateAddress: string;
+  candidateAge: number;
+  candidateLocation: string;
+  jobId: string;
+  jobTitle: string;
+  jobCompany: string;
+  matchScore: number;
+  overallFit: string;
+  strongMatches: string[];
+  gapsAndQuestions: GapQuestion[];
+  screenedAt: string;
   warning?: string;
 }
 
@@ -34,21 +45,128 @@ const initialForm: CandidateForm = {
   currentLocation: ""
 };
 
-export default function InterviewScreener() {
+// 3 Mock screenings to pre-populate the dashboard if localstorage is empty
+const defaultMockScreenings: SavedScreening[] = [
+  {
+    id: "scr-1",
+    candidateName: "Rahul Sharma",
+    candidateEmail: "rahul.sharma@example.com",
+    candidatePhone: "+91 98765 43210",
+    candidateAddress: "Sector 15, Gurgaon, Haryana",
+    candidateAge: 25,
+    candidateLocation: "Delhi NCR",
+    jobId: "opening-a",
+    jobTitle: "Founders Office Associate",
+    jobCompany: "Satva Partners",
+    matchScore: 88,
+    overallFit: "Rahul is an outstanding fit for the Founders Office Associate role. He brings 3 years of consulting experience from EY, showcasing strategic problem-solving and executive-ready communication. He has advanced Excel modeling credentials and a proven track record of coordinating with leadership stakeholders.",
+    strongMatches: [
+      "3 years of management consulting experience at EY, aligning with the strategic problem-solving requirement.",
+      "Expert-level Excel financial modeling certifications and experience building automated executive dashboards.",
+      "Direct experience managing executive relationships and presenting weekly board decks."
+    ],
+    gapsAndQuestions: [
+      {
+        gap: "Limited experience with early-stage venture building metrics compared to corporate finance.",
+        question: "How would you adapt your financial analysis approach from structured corporate projects to high-ambiguity startup models?"
+      }
+    ],
+    screenedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1 day ago
+  },
+  {
+    id: "scr-2",
+    candidateName: "Aditi Patel",
+    candidateEmail: "aditi.patel@example.com",
+    candidatePhone: "+91 87654 32109",
+    candidateAddress: "Bandra West, Mumbai, Maharashtra",
+    candidateAge: 24,
+    candidateLocation: "Mumbai",
+    jobId: "opening-b",
+    jobTitle: "Content & Communities Lead",
+    jobCompany: "House of Ved",
+    matchScore: 74,
+    overallFit: "Aditi shows strong potential for the Content & Communities Lead position. She has 2 years of social media management experience at a lifestyle agency, producing high-engagement vertical video content. Her copywriting is creative and polished, though she has limited direct community forum management experience.",
+    strongMatches: [
+      "2 years of social media creation, showing strong alignment with visual storytelling and vertical video (Reels/TikTok).",
+      "Proficient in Adobe Suite and Canva, matching the creative design requirement.",
+      "Creative writing portfolio showcasing brand tone consistency across digital newsletters."
+    ],
+    gapsAndQuestions: [
+      {
+        gap: "No explicit experience managing Discord, Slack, or Circle community groups.",
+        question: "Can you describe your strategy for keeping community members engaged and active in a structured forum environment?"
+      }
+    ],
+    screenedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days ago
+  },
+  {
+    id: "scr-3",
+    candidateName: "Priyank Nandawat",
+    candidateEmail: "priyank@example.com",
+    candidatePhone: "+91 99999 88888",
+    candidateAddress: "Mansarovar, Jaipur, Rajasthan",
+    candidateAge: 22,
+    candidateLocation: "Jaipur",
+    jobId: "opening-a",
+    jobTitle: "Founders Office Associate",
+    jobCompany: "Satva Partners",
+    matchScore: 10,
+    overallFit: "Priyank's resume shows experience as a Salesforce Developer trainee, but the role of Founders Office Associate requires 2-3 years of corporate experience in a Tier-1 organization, strategic problem-solving, data analysis, Excel/PowerPoint proficiency, and executive-level communication—all of which are not evidenced in the provided resume. Consequently, the candidate does not align well with the core responsibilities.",
+    strongMatches: [],
+    gapsAndQuestions: [
+      {
+        gap: "No evidence of communication with senior executives or presenting to them.",
+        question: "Have you presented findings or recommendations to senior leadership in any capacity? If yes, describe the context and outcome."
+      }
+    ],
+    screenedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+  }
+];
+
+export default function ClaraAiPlatform() {
+  // Navigation: 'dashboard' | 'screenings' | 'screen' | 'candidates' | 'settings'
+  const [activeTab, setActiveTab] = useState<"dashboard" | "screenings" | "screen" | "candidates" | "settings">("dashboard");
+  const [screenings, setScreenings] = useState<SavedScreening[]>([]);
+  const [selectedScreeningId, setSelectedScreeningId] = useState<string | null>(null);
+
+  // New Screening Form Workflow States: 'form' | 'review' | 'screening'
+  const [formStep, setFormStep] = useState<"form" | "review" | "screening">("form");
   const [form, setForm] = useState<CandidateForm>(initialForm);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  
-  // Workflow states: 'form' | 'review' | 'screening' | 'results'
-  const [step, setStep] = useState<"form" | "review" | "screening" | "results">("form");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [screeningResult, setScreeningResult] = useState<ScreeningResult | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  // Settings states
+  const [tempApiKey, setTempApiKey] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form validation helper
+  // Search & Filter states for Screenings table
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filterJobId, setFilterJobId] = useState<string>("all");
+  const [filterFit, setFilterFit] = useState<string>("all");
+
+  // Load screenings from LocalStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("clara_screenings");
+    if (saved) {
+      setScreenings(JSON.parse(saved));
+    } else {
+      localStorage.setItem("clara_screenings", JSON.stringify(defaultMockScreenings));
+      setScreenings(defaultMockScreenings);
+    }
+
+    const savedKey = localStorage.getItem("clara_temp_key") || "";
+    setTempApiKey(savedKey);
+  }, []);
+
+  const saveScreeningsToStorage = (updated: SavedScreening[]) => {
+    localStorage.setItem("clara_screenings", JSON.stringify(updated));
+    setScreenings(updated);
+  };
+
+  // Form Validation
   const isFormValid = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isAgeValid = !isNaN(Number(form.age)) && Number(form.age) > 0;
@@ -89,6 +207,12 @@ export default function InterviewScreener() {
     }
   };
 
+  const removeFile = () => {
+    setResumeFile(null);
+    setFileError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
@@ -101,24 +225,11 @@ export default function InterviewScreener() {
     }
   };
 
-  const removeFile = () => {
-    setResumeFile(null);
-    setFileError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleReviewTransition = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isFormValid()) {
-      setStep("review");
-    }
-  };
-
   const triggerScreening = async () => {
     if (!resumeFile || !isFormValid()) return;
 
     setIsLoading(true);
-    setStep("screening");
+    setFormStep("screening");
     setApiError(null);
 
     const formData = new FormData();
@@ -131,9 +242,16 @@ export default function InterviewScreener() {
     formData.append("currentLocation", form.currentLocation);
     formData.append("jobOpeningId", selectedJobId);
 
+    // If a temporary key is configured in settings, inject it in headers
+    const headers: HeadersInit = {};
+    if (tempApiKey.trim() !== "") {
+      headers["x-llm-api-key"] = tempApiKey.trim();
+    }
+
     try {
       const response = await fetch("/api/screen", {
         method: "POST",
+        headers,
         body: formData,
       });
 
@@ -142,31 +260,59 @@ export default function InterviewScreener() {
         throw new Error(data.error || "Screening failed");
       }
 
-      setScreeningResult(data);
-      setStep("results");
+      // Add to local screenings list
+      const selectedJob = jobOpenings.find(j => j.id === selectedJobId);
+      const newScreening: SavedScreening = {
+        id: `scr-${Date.now()}`,
+        candidateName: form.name,
+        candidateEmail: form.email,
+        candidatePhone: form.phone,
+        candidateAddress: form.address,
+        candidateAge: Number(form.age),
+        candidateLocation: form.currentLocation,
+        jobId: selectedJobId,
+        jobTitle: selectedJob?.title || "Unknown Position",
+        jobCompany: selectedJob?.company || "Unknown Company",
+        matchScore: data.match_score,
+        overallFit: data.overall_fit,
+        strongMatches: data.strong_matches || [],
+        gapsAndQuestions: data.gaps_and_questions || [],
+        screenedAt: new Date().toISOString(),
+        warning: data.warning
+      };
+
+      const updated = [newScreening, ...screenings];
+      saveScreeningsToStorage(updated);
+      
+      // Transition to screenings results view
+      setSelectedScreeningId(newScreening.id);
+      setActiveTab("screenings");
+      resetFormWorkflow();
     } catch (error: any) {
       console.error(error);
       setApiError(error.message || "An unexpected error occurred during screening.");
-      setStep("review");
+      setFormStep("review");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const resetAll = () => {
+  const resetFormWorkflow = () => {
     setForm(initialForm);
     setSelectedJobId("");
     setResumeFile(null);
     setFileError(null);
-    setScreeningResult(null);
-    setApiError(null);
-    setStep("form");
+    setFormStep("form");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const selectedJob = jobOpenings.find(j => j.id === selectedJobId);
+  // Metrics Helpers
+  const getAverageScore = () => {
+    if (screenings.length === 0) return 0;
+    const sum = screenings.reduce((acc, curr) => acc + curr.matchScore, 0);
+    return Math.round(sum / screenings.length);
+  };
 
-  // Score description helper
   const getScoreRating = (score: number) => {
     if (score >= 85) return { text: "Strong match", color: "text-emerald-700 bg-emerald-50 border-emerald-200" };
     if (score >= 70) return { text: "Good potential fit", color: "text-blue-700 bg-blue-50 border-blue-200" };
@@ -174,442 +320,958 @@ export default function InterviewScreener() {
     return { text: "Weak fit", color: "text-rose-700 bg-rose-50 border-rose-200" };
   };
 
+  // Settings Actions
+  const handleSaveApiKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem("clara_temp_key", tempApiKey);
+    alert("API key saved locally. Future screening requests will use this key!");
+  };
+
+  const handleResetDatabase = () => {
+    if (confirm("Are you sure you want to reset the local database? This will restore the 3 default mock candidates.")) {
+      localStorage.setItem("clara_screenings", JSON.stringify(defaultMockScreenings));
+      setScreenings(defaultMockScreenings);
+      setSelectedScreeningId(null);
+      alert("Local database reset successfully!");
+    }
+  };
+
+  const handleDeleteScreening = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Are you sure you want to delete this screening record?")) {
+      const filtered = screenings.filter(s => s.id !== id);
+      saveScreeningsToStorage(filtered);
+      if (selectedScreeningId === id) {
+        setSelectedScreeningId(null);
+      }
+    }
+  };
+
+  // Filtered Screenings list
+  const getFilteredScreenings = () => {
+    return screenings.filter(s => {
+      const matchesSearch = 
+        s.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.jobTitle.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesJob = filterJobId === "all" || s.jobId === filterJobId;
+      
+      let matchesFit = true;
+      if (filterFit !== "all") {
+        if (filterFit === "strong") matchesFit = s.matchScore >= 85;
+        else if (filterFit === "good") matchesFit = s.matchScore >= 70 && s.matchScore < 85;
+        else if (filterFit === "moderate") matchesFit = s.matchScore >= 50 && s.matchScore < 70;
+        else if (filterFit === "weak") matchesFit = s.matchScore < 50;
+      }
+
+      return matchesSearch && matchesJob && matchesFit;
+    });
+  };
+
+  // Global Candidates grouping
+  const getGlobalCandidates = () => {
+    const candidatesMap = new Map<string, {
+      name: string;
+      email: string;
+      phone: string;
+      location: string;
+      applicationsCount: number;
+      latestRole: string;
+      latestScore: number;
+      screenings: SavedScreening[];
+    }>();
+
+    screenings.forEach(s => {
+      const key = s.candidateEmail.toLowerCase().trim();
+      const existing = candidatesMap.get(key);
+
+      if (existing) {
+        existing.applicationsCount += 1;
+        // Keep the latest record (first in the list is usually latest due to sort order)
+        if (new Date(s.screenedAt) > new Date(existing.screenings[0].screenedAt)) {
+          existing.latestRole = s.jobTitle;
+          existing.latestScore = s.matchScore;
+        }
+        existing.screenings.push(s);
+      } else {
+        candidatesMap.set(key, {
+          name: s.candidateName,
+          email: s.candidateEmail,
+          phone: s.candidatePhone,
+          location: s.candidateLocation,
+          applicationsCount: 1,
+          latestRole: s.jobTitle,
+          latestScore: s.matchScore,
+          screenings: [s]
+        });
+      }
+    });
+
+    return Array.from(candidatesMap.values());
+  };
+
+  const selectedJob = jobOpenings.find(j => j.id === selectedJobId);
+  const activeScreening = screenings.find(s => s.id === selectedScreeningId);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased">
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Interview Screener</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Quickly compare candidates against open roles.</p>
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
+        <div className="mx-auto max-w-5xl px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="cursor-pointer" onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <span className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-black">C</span>
+              ClaraScreen <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100 font-semibold tracking-normal normal-case">Enterprise AI</span>
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">High-fidelity candidate matching and recruitment dashboard.</p>
           </div>
-          <nav className="flex items-center gap-4 text-xs font-medium text-slate-600">
+          <nav className="flex items-center gap-6 text-xs font-semibold text-slate-500">
             <button 
-              onClick={resetAll} 
-              className={`hover:text-slate-900 ${step !== "results" ? "text-slate-900 font-semibold" : ""}`}
+              onClick={() => { setActiveTab("dashboard"); setSelectedScreeningId(null); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "dashboard" ? "text-blue-600 font-bold" : ""}`}
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => { setActiveTab("screenings"); setSelectedScreeningId(null); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "screenings" && !selectedScreeningId ? "text-blue-600 font-bold" : ""}`}
+            >
+              Screenings
+            </button>
+            <button 
+              onClick={() => { setActiveTab("screen"); resetFormWorkflow(); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "screen" ? "text-blue-600 font-bold" : ""}`}
             >
               Screen Candidate
             </button>
-            <span className="text-slate-300">|</span>
-            <span className="text-slate-400">About / Approach</span>
+            <button 
+              onClick={() => { setActiveTab("candidates"); setSelectedScreeningId(null); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "candidates" ? "text-blue-600 font-bold" : ""}`}
+            >
+              Global Candidates
+            </button>
+            <button 
+              onClick={() => { setActiveTab("settings"); setSelectedScreeningId(null); }}
+              className={`hover:text-slate-950 transition-colors ${activeTab === "settings" ? "text-blue-600 font-bold" : ""}`}
+            >
+              Settings
+            </button>
           </nav>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-5xl px-6 py-8">
         
-        {/* Step Progress Indicators */}
-        {step !== "screening" && (
-          <div className="mb-8 flex items-center gap-2 text-xs font-medium text-slate-400">
-            <span className={step === "form" ? "text-blue-600 font-semibold" : "text-slate-600"}>1. Candidate Details</span>
-            <span className="text-slate-300">→</span>
-            <span className={step === "review" ? "text-blue-600 font-semibold" : ""}>2. Review</span>
-            <span className="text-slate-300">→</span>
-            <span className={step === "results" ? "text-blue-600 font-semibold" : ""}>3. Evaluation Results</span>
-          </div>
-        )}
-
-        {apiError && (
-          <div className="mb-6 p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm flex flex-col gap-2 shadow-sm">
-            <div className="font-semibold flex items-center gap-1.5">
-              <span>⚠️</span> Screening Error
+        {/* TAB 1: DASHBOARD VIEW */}
+        {activeTab === "dashboard" && (
+          <div className="flex flex-col gap-8 animate-fadeIn">
+            {/* Page Header */}
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Workspace Dashboard</h2>
+              <p className="text-xs text-slate-500">Overview of evaluations and screening pipelines.</p>
             </div>
-            <p>{apiError}</p>
-            <button
-              onClick={triggerScreening}
-              className="w-fit mt-1 px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-900 text-xs font-semibold rounded-md border border-rose-300 transition-colors"
-            >
-              Try again
-            </button>
-          </div>
-        )}
 
-        {/* STEP 1: FORM SECTION */}
-        {step === "form" && (
-          <form onSubmit={handleReviewTransition} className="grid grid-cols-1 md:grid-cols-12 gap-8">
-            {/* Left Column: Personal Information */}
-            <div className="md:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-5">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 mb-1">Candidate Details</h2>
-                <p className="text-xs text-slate-500">Provide basic demographic and contact information.</p>
+            {/* Metrics cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Candidates</span>
+                <span className="text-2xl font-extrabold text-slate-950">{screenings.length}</span>
+                <span className="text-[9px] text-slate-500 mt-1">Evaluated in browser</span>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="name" className="text-xs font-semibold text-slate-700">Full Name <span className="text-rose-500">*</span></label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    placeholder="John Doe"
-                    value={form.name}
-                    onChange={handleInputChange}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="email" className="text-xs font-semibold text-slate-700">Email Address <span className="text-rose-500">*</span></label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    placeholder="john@example.com"
-                    value={form.email}
-                    onChange={handleInputChange}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="phone" className="text-xs font-semibold text-slate-700">Phone Number <span className="text-rose-500">*</span></label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    required
-                    placeholder="+91 98765 43210"
-                    value={form.phone}
-                    onChange={handleInputChange}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="age" className="text-xs font-semibold text-slate-700">Age <span className="text-rose-500">*</span></label>
-                  <input
-                    id="age"
-                    name="age"
-                    type="number"
-                    required
-                    min="18"
-                    max="100"
-                    placeholder="25"
-                    value={form.age}
-                    onChange={handleInputChange}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <label htmlFor="currentLocation" className="text-xs font-semibold text-slate-700">Current Location / Place <span className="text-rose-500">*</span></label>
-                  <input
-                    id="currentLocation"
-                    name="currentLocation"
-                    type="text"
-                    required
-                    placeholder="Mumbai, Maharashtra"
-                    value={form.currentLocation}
-                    onChange={handleInputChange}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 flex flex-col gap-1.5">
-                  <label htmlFor="address" className="text-xs font-semibold text-slate-700">Full Postal Address <span className="text-rose-500">*</span></label>
-                  <input
-                    id="address"
-                    name="address"
-                    type="text"
-                    required
-                    placeholder="123, Nariman Point, Marine Drive"
-                    value={form.address}
-                    onChange={handleInputChange}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  />
-                </div>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Average Match</span>
+                <span className="text-2xl font-extrabold text-slate-950">{getAverageScore()}%</span>
+                <span className="text-[9px] text-slate-500 mt-1">Target role threshold</span>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Strong Matches</span>
+                <span className="text-2xl font-extrabold text-slate-950">{screenings.filter(s => s.matchScore >= 85).length}</span>
+                <span className="text-[9px] text-emerald-600 font-semibold mt-1">✓ Ready for call</span>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Positions</span>
+                <span className="text-2xl font-extrabold text-slate-950">{jobOpenings.length}</span>
+                <span className="text-[9px] text-slate-500 mt-1">Recruitment pipelines</span>
               </div>
             </div>
 
-            {/* Right Column: Resume Upload & Job Opening */}
-            <div className="md:col-span-5 flex flex-col gap-6">
-              {/* Job Opening Section */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 mb-1">Target Opening</h2>
-                  <p className="text-xs text-slate-500">Select which role the candidate is applying for.</p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="jobOpeningId" className="text-xs font-semibold text-slate-700">Select Opening <span className="text-rose-500">*</span></label>
-                  <select
-                    id="jobOpeningId"
-                    value={selectedJobId}
-                    required
-                    onChange={(e) => setSelectedJobId(e.target.value)}
-                    className="px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            {/* Layout: Recent Screenings & Distribution */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+              
+              {/* Left Column: Recent Screenings table */}
+              <div className="md:col-span-8 bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900">Recent Screenings</h3>
+                  <button 
+                    onClick={() => setActiveTab("screenings")}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-bold"
                   >
-                    <option value="">-- Choose Job Opening --</option>
-                    {jobOpenings.map((job) => (
-                      <option key={job.id} value={job.id}>
-                        {job.title} — {job.company}
-                      </option>
-                    ))}
-                  </select>
+                    View All
+                  </button>
                 </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 border-b border-slate-100 uppercase tracking-wider text-[9px] font-bold">
+                        <th className="px-5 py-3">Candidate</th>
+                        <th className="px-5 py-3">Target Opening</th>
+                        <th className="px-5 py-3">Score</th>
+                        <th className="px-5 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {screenings.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-8 text-center text-slate-400 italic">No screenings recorded yet. Click "Screen Candidate" to start!</td>
+                        </tr>
+                      ) : (
+                        screenings.slice(0, 5).map((s) => (
+                          <tr 
+                            key={s.id} 
+                            onClick={() => { setSelectedScreeningId(s.id); setActiveTab("screenings"); }}
+                            className="hover:bg-slate-50 cursor-pointer transition-colors group"
+                          >
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-slate-950 group-hover:text-blue-600 transition-colors">{s.candidateName}</span>
+                                <span className="text-[10px] text-slate-500">{s.candidateLocation}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-slate-900">{s.jobTitle}</span>
+                                <span className="text-[10px] text-slate-400">{s.jobCompany}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getScoreRating(s.matchScore).color}`}>
+                                {s.matchScore}%
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button 
+                                onClick={() => { setSelectedScreeningId(s.id); setActiveTab("screenings"); }}
+                                className="text-blue-600 hover:underline mr-3 font-semibold"
+                              >
+                                View
+                              </button>
+                              <button 
+                                onClick={(e) => handleDeleteScreening(s.id, e)}
+                                className="text-rose-500 hover:text-rose-700 font-semibold"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-                {selectedJob && (
-                  <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-100 text-xs flex flex-col gap-1.5">
-                    <div className="font-semibold text-slate-900">{selectedJob.title}</div>
-                    <div className="text-slate-600">{selectedJob.company} {selectedJob.grade ? `(${selectedJob.grade})` : ""}</div>
-                    <div className="text-slate-500 line-clamp-3 mt-1.5 leading-relaxed">{selectedJob.description}</div>
+              {/* Right Column: Roles Quick Summary list */}
+              <div className="md:col-span-4 flex flex-col gap-6">
+                <div className="bg-white p-5 rounded-xl border border-slate-200 flex flex-col gap-4">
+                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Screening Openings</h3>
+                  <div className="flex flex-col gap-4">
+                    {jobOpenings.map((job) => {
+                      const countForJob = screenings.filter(s => s.jobId === job.id).length;
+                      return (
+                        <div key={job.id} className="flex items-center justify-between border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-semibold text-slate-900 leading-tight">{job.title}</span>
+                            <span className="text-[10px] text-slate-400">{job.company}</span>
+                          </div>
+                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold">
+                            {countForJob} screened
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Simulated Mode Warning Banner (if no API keys setup or local mock is active) */}
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex flex-col gap-2">
+                  <span className="text-xs font-bold text-blue-800">API Key & Testing Settings</span>
+                  <p className="text-[10px] text-blue-600 leading-relaxed">
+                    You can manage your API credentials directly in the settings page. By default, the application runs on secure serverless logic, falling back to rich simulated reports if keys are absent.
+                  </p>
+                  <button 
+                    onClick={() => setActiveTab("settings")}
+                    className="text-[10px] text-blue-700 hover:underline font-bold text-left mt-1"
+                  >
+                    Manage Settings →
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: SCREENINGS LIST / CANDIDATE DETAILED RESULTS */}
+        {activeTab === "screenings" && (
+          <div className="animate-fadeIn">
+            {activeScreening ? (
+              /* INDIVIDUAL CANDIDATE SCREENING RESULT VIEW */
+              <div className="flex flex-col gap-6">
+                {/* Back Link */}
+                <button 
+                  onClick={() => setSelectedScreeningId(null)}
+                  className="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center gap-1 self-start"
+                >
+                  ← Back to all screenings
+                </button>
+
+                {/* Warning message if simulated result */}
+                {activeScreening.warning && (
+                  <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>{activeScreening.warning}</span>
                   </div>
                 )}
-              </div>
 
-              {/* Resume Upload Section */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 mb-1">Resume Upload</h2>
-                  <p className="text-xs text-slate-500">Only Microsoft Word (.docx) files are supported.</p>
+                {/* Screening Header card */}
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Candidate Screening Result</span>
+                    <h2 className="text-xl font-bold text-slate-950">{activeScreening.candidateName}</h2>
+                    <p className="text-xs text-slate-500">
+                      {activeScreening.jobTitle} — <span className="font-semibold text-slate-700">{activeScreening.jobCompany}</span>
+                    </p>
+                    <span className="text-[9px] text-slate-400 mt-0.5">Screened on {new Date(activeScreening.screenedAt).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end">
+                      <div className="text-3xl font-extrabold text-slate-950">{activeScreening.matchScore}<span className="text-sm font-medium text-slate-400">/100</span></div>
+                      <span className={`text-[10px] px-2.5 py-0.5 mt-1 font-semibold rounded-full border ${getScoreRating(activeScreening.matchScore).color}`}>
+                        {getScoreRating(activeScreening.matchScore).text}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Upload Area */}
-                {!resumeFile ? (
-                  <div
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-6 bg-slate-50 hover:bg-slate-100/50 hover:border-slate-400 cursor-pointer transition-colors"
-                  >
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept=".docx"
-                      className="hidden"
-                    />
-                    <div className="text-2xl mb-1.5 text-slate-400">📄</div>
-                    <p className="text-xs font-semibold text-slate-800 text-center">Drag & drop your .docx resume here, or browse</p>
-                    <p className="text-[10px] text-slate-500 mt-1">Accepted format: DOCX (Word Document)</p>
+                {/* Main Results Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                  
+                  {/* Left Column: Overall Fit & Strengths */}
+                  <div className="md:col-span-7 flex flex-col gap-6">
+                    {/* Overall Fit text block */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col gap-3">
+                      <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Overall Fit</h3>
+                      <p className="text-xs text-slate-600 leading-relaxed font-normal">{activeScreening.overallFit}</p>
+                    </div>
+
+                    {/* Strong Matches bullet list */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col gap-3">
+                      <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Strong Matches</h3>
+                      {activeScreening.strongMatches && activeScreening.strongMatches.length > 0 ? (
+                        <ul className="flex flex-col gap-3">
+                          {activeScreening.strongMatches.map((strength, index) => (
+                            <li key={index} className="flex gap-2.5 text-xs text-slate-600 leading-relaxed">
+                              <span className="text-emerald-500 font-semibold shrink-0">✓</span>
+                              <span>{strength}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic py-1">No significant matching requirements found in the resume for this position.</p>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3.5 rounded-lg border border-slate-200 bg-slate-50">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="text-xl">📄</div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-800 truncate">{resumeFile.name}</p>
-                        <p className="text-[10px] text-slate-500">{(resumeFile.size / 1024).toFixed(1)} KB</p>
+
+                  {/* Right Column: Candidate Profile details & Gaps */}
+                  <div className="md:col-span-5 flex flex-col gap-6">
+                    {/* Candidate Info profile card */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col gap-4">
+                      <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-1">Candidate Profile</h3>
+                      <div className="text-xs flex flex-col gap-2">
+                        <div className="flex justify-between py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Email</span>
+                          <span className="font-medium text-slate-900">{activeScreening.candidateEmail}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Phone</span>
+                          <span className="font-medium text-slate-900">{activeScreening.candidatePhone}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Location</span>
+                          <span className="font-medium text-slate-900">{activeScreening.candidateLocation}</span>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-50">
+                          <span className="text-slate-400">Age</span>
+                          <span className="font-medium text-slate-900">{activeScreening.candidateAge} years old</span>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={removeFile}
-                      className="text-xs font-semibold text-slate-500 hover:text-rose-600 transition-colors"
-                    >
-                      Remove
-                    </button>
+
+                    {/* Gaps & Questions recruiter box */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 flex flex-col gap-3">
+                      <h3 className="text-sm font-bold text-slate-950 border-b border-slate-100 pb-2">Gaps & Interview Questions</h3>
+                      {activeScreening.gapsAndQuestions && activeScreening.gapsAndQuestions.length > 0 ? (
+                        <div className="flex flex-col gap-5 divide-y divide-slate-100">
+                          {activeScreening.gapsAndQuestions.map((item, index) => (
+                            <div key={index} className={`flex flex-col gap-2 ${index > 0 ? "pt-4" : ""}`}>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gap / Uncertainty</span>
+                                <p className="text-xs text-slate-700 leading-relaxed">{item.gap}</p>
+                              </div>
+                              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Ask Recruiter Question</span>
+                                <p className="text-xs font-semibold text-slate-800 leading-relaxed italic">"{item.question}"</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic py-1">No significant gaps or uncertainties detected.</p>
+                      )}
+                    </div>
                   </div>
-                )}
 
-                {fileError && (
-                  <p className="text-xs font-medium text-rose-600 bg-rose-50 border border-rose-100 rounded px-2.5 py-1.5 mt-1.5">
-                    {fileError}
-                  </p>
-                )}
-              </div>
-
-              {/* Submit / Proceed Button */}
-              <button
-                type="submit"
-                disabled={!isFormValid()}
-                className={`w-full py-2.5 px-4 font-semibold text-xs rounded-lg text-center transition-colors shadow-sm ${
-                  isFormValid()
-                    ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
-                    : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-100"
-                }`}
-              >
-                Review Application
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* STEP 2: REVIEW BEFORE SCREENING */}
-        {step === "review" && selectedJob && (
-          <div className="mx-auto max-w-2xl bg-white p-8 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-6">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 mb-1">Review Candidate Profile</h2>
-              <p className="text-xs text-slate-500">Ensure the target role and candidate details are correct before screening.</p>
-            </div>
-
-            {/* Review fields layout */}
-            <div className="border-t border-slate-100 divide-y divide-slate-100 text-xs">
-              <div className="py-3.5 grid grid-cols-3 gap-4">
-                <span className="font-semibold text-slate-500">Candidate</span>
-                <span className="col-span-2 font-medium text-slate-900">{form.name}</span>
-              </div>
-              <div className="py-3.5 grid grid-cols-3 gap-4">
-                <span className="font-semibold text-slate-500">Email</span>
-                <span className="col-span-2 font-medium text-slate-900">{form.email}</span>
-              </div>
-              <div className="py-3.5 grid grid-cols-3 gap-4">
-                <span className="font-semibold text-slate-500">Phone</span>
-                <span className="col-span-2 font-medium text-slate-900">{form.phone}</span>
-              </div>
-              <div className="py-3.5 grid grid-cols-3 gap-4">
-                <span className="font-semibold text-slate-500">Location</span>
-                <span className="col-span-2 font-medium text-slate-900">{form.currentLocation}</span>
-              </div>
-              <div className="py-3.5 grid grid-cols-3 gap-4">
-                <span className="font-semibold text-slate-500">Resume File</span>
-                <span className="col-span-2 font-medium text-slate-900">{resumeFile?.name} ({(resumeFile!.size / 1024).toFixed(1)} KB)</span>
-              </div>
-              <div className="py-3.5 grid grid-cols-3 gap-4">
-                <span className="font-semibold text-slate-500">Applying for</span>
-                <div className="col-span-2 flex flex-col gap-0.5">
-                  <span className="font-semibold text-slate-900">{selectedJob.title}</span>
-                  <span className="text-[10px] text-slate-500">{selectedJob.company}</span>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* SCREENINGS TABLE HISTORY VIEW */
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Evaluation Records</h2>
+                  <p className="text-xs text-slate-500">History of all candidate screenings performed.</p>
+                </div>
 
-            {/* CTA Buttons */}
-            <div className="flex gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setStep("form")}
-                className="flex-1 py-2 px-4 border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors text-center"
-              >
-                Back to Edit
-              </button>
-              <button
-                type="button"
-                onClick={triggerScreening}
-                className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors text-center shadow-sm"
-              >
-                Screen Candidate
-              </button>
-            </div>
+                {/* Filter header block */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                  <div className="w-full md:w-72 relative">
+                    <input 
+                      type="text" 
+                      placeholder="Search candidate or position..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full py-1.5 pl-8 pr-3 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    />
+                    <span className="absolute left-2.5 top-2.5 text-slate-400">🔍</span>
+                  </div>
+
+                  <div className="w-full md:w-auto flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role</span>
+                      <select 
+                        value={filterJobId}
+                        onChange={(e) => setFilterJobId(e.target.value)}
+                        className="py-1.5 px-3 border border-slate-300 bg-white rounded-lg text-xs outline-none focus:border-blue-500"
+                      >
+                        <option value="all">All openings</option>
+                        {jobOpenings.map(job => (
+                          <option key={job.id} value={job.id}>{job.title}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fit</span>
+                      <select 
+                        value={filterFit}
+                        onChange={(e) => setFilterFit(e.target.value)}
+                        className="py-1.5 px-3 border border-slate-300 bg-white rounded-lg text-xs outline-none focus:border-blue-500"
+                      >
+                        <option value="all">All match levels</option>
+                        <option value="strong">Strong match (&gt;= 85)</option>
+                        <option value="good">Good fit (70-84)</option>
+                        <option value="moderate">Moderate fit (50-69)</option>
+                        <option value="weak">Weak fit (&lt; 50)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table list */}
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 border-b border-slate-100 uppercase tracking-wider text-[9px] font-bold">
+                          <th className="px-5 py-3">Candidate</th>
+                          <th className="px-5 py-3">Applied Position</th>
+                          <th className="px-5 py-3">Match Score</th>
+                          <th className="px-5 py-3">Screening Date</th>
+                          <th className="px-5 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {getFilteredScreenings().length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-5 py-12 text-center text-slate-400 italic">
+                              No evaluation records match your filter criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          getFilteredScreenings().map((s) => (
+                            <tr 
+                              key={s.id} 
+                              onClick={() => setSelectedScreeningId(s.id)}
+                              className="hover:bg-slate-50 cursor-pointer transition-colors group"
+                            >
+                              <td className="px-5 py-4">
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-slate-950 group-hover:text-blue-600 transition-colors">{s.candidateName}</span>
+                                  <span className="text-[10px] text-slate-400">{s.candidateEmail}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-slate-900">{s.jobTitle}</span>
+                                  <span className="text-[10px] text-slate-400">{s.jobCompany}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getScoreRating(s.matchScore).color}`}>
+                                  {s.matchScore}%
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-slate-500">
+                                {new Date(s.screenedAt).toLocaleDateString()}
+                              </td>
+                              <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                <button 
+                                  onClick={() => setSelectedScreeningId(s.id)}
+                                  className="text-blue-600 hover:underline mr-4 font-semibold"
+                                >
+                                  Review Report
+                                </button>
+                                <button 
+                                  onClick={(e) => handleDeleteScreening(s.id, e)}
+                                  className="text-rose-500 hover:text-rose-700 font-semibold"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* STEP 3: LOADING / PROCESSING STATE */}
-        {step === "screening" && (
-          <div className="mx-auto max-w-md bg-white p-8 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-6">
-            {/* Spinning Loader */}
-            <div className="relative w-12 h-12">
-              <div className="w-12 h-12 rounded-full border-4 border-slate-100 border-t-blue-600 animate-spin"></div>
+        {/* TAB 3: SCREEN CANDIDATE (FORM WORKFLOW) */}
+        {activeTab === "screen" && (
+          <div className="mx-auto max-w-2xl animate-fadeIn">
+            {/* Page Header */}
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-slate-900">Initiate Evaluation</h2>
+              <p className="text-xs text-slate-500">Fill in candidate credentials, upload resume, and select the target opening.</p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <h3 className="text-sm font-bold text-slate-900">Comparing candidate against opening...</h3>
-              <p className="text-xs text-slate-500 px-4">
-                Reading resume text, evaluating strengths, and generating follow-up recruiter questions. This takes approximately 10–15 seconds.
-              </p>
-            </div>
-          </div>
-        )}
 
-        {/* STEP 4: SCREENING RESULTS */}
-        {step === "results" && screeningResult && selectedJob && (
-          <div className="flex flex-col gap-8">
-            
-            {/* Success alert message if running in mock/fallback mode */}
-            {screeningResult.warning && (
-              <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
-                <span>⚠️</span>
-                <span>{screeningResult.warning}</span>
+            {/* Workflow Navigation Header */}
+            <div className="mb-8 flex justify-center text-xs font-semibold text-slate-400 border-b border-slate-200 pb-3">
+              <span className={`pb-3 border-b-2 px-4 transition-colors ${formStep === "form" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent"}`}>
+                1. Candidate Details
+              </span>
+              <span className="pb-3 px-4">→</span>
+              <span className={`pb-3 border-b-2 px-4 transition-colors ${formStep === "review" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent"}`}>
+                2. Review
+              </span>
+              <span className="pb-3 px-4">→</span>
+              <span className={`pb-3 border-b-2 px-4 transition-colors ${formStep === "screening" ? "border-blue-600 text-blue-600 font-bold" : "border-transparent"}`}>
+                3. Screening Results
+              </span>
+            </div>
+
+            {/* ERROR ALERTS */}
+            {apiError && (
+              <div className="mb-6 p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex flex-col gap-1">
+                <span className="font-bold">Screening Failed:</span>
+                <span>{apiError}</span>
               </div>
             )}
 
-            {/* Candidate Header Summary card */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Candidate Screening Result</span>
-                <h2 className="text-xl font-bold text-slate-900">{form.name}</h2>
-                <p className="text-xs text-slate-500">{selectedJob.title} — <span className="font-semibold">{selectedJob.company}</span></p>
-              </div>
+            {/* STEP 1: FORM DETAILS */}
+            {formStep === "form" && (
+              <form onSubmit={(e) => { e.preventDefault(); if (isFormValid()) setFormStep("review"); }} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-6">
+                
+                {/* 1. Candidate Details group */}
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">1. Candidate Information</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Full Name</label>
+                      <input 
+                        type="text" 
+                        name="name" 
+                        placeholder="e.g. Rahul Sharma"
+                        value={form.name} 
+                        onChange={handleInputChange}
+                        required
+                        className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Email Address</label>
+                      <input 
+                        type="email" 
+                        name="email" 
+                        placeholder="e.g. name@example.com"
+                        value={form.email} 
+                        onChange={handleInputChange}
+                        required
+                        className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      />
+                    </div>
+                  </div>
 
-              {/* Score display block */}
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-end">
-                  <div className="text-3xl font-extrabold text-slate-900">{screeningResult.match_score}<span className="text-sm font-medium text-slate-400">/100</span></div>
-                  <span className={`text-[10px] px-2 py-0.5 mt-1 font-semibold rounded-full border ${getScoreRating(screeningResult.match_score).color}`}>
-                    {getScoreRating(screeningResult.match_score).text}
-                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Phone Number</label>
+                      <input 
+                        type="text" 
+                        name="phone" 
+                        placeholder="e.g. +91 99999 88888"
+                        value={form.phone} 
+                        onChange={handleInputChange}
+                        required
+                        className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Current Location</label>
+                      <input 
+                        type="text" 
+                        name="currentLocation" 
+                        placeholder="e.g. Jaipur, Rajasthan"
+                        value={form.currentLocation} 
+                        onChange={handleInputChange}
+                        required
+                        className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Age</label>
+                      <input 
+                        type="number" 
+                        name="age" 
+                        placeholder="e.g. 24"
+                        value={form.age} 
+                        onChange={handleInputChange}
+                        required
+                        min="1"
+                        className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Residential Address</label>
+                    <input 
+                      type="text" 
+                      name="address" 
+                      placeholder="e.g. Mansarovar, Jaipur"
+                      value={form.address} 
+                      onChange={handleInputChange}
+                      required
+                      className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Drag & Drop DOCX Upload group */}
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">2. Upload Candidate Resume</h3>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-slate-700">Resume File (.docx only)</label>
+                    <div 
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/20 rounded-xl p-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center"
+                    >
+                      <span className="text-3xl text-slate-400">📄</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-bold text-slate-700">Click to upload or drag & drop</span>
+                        <span className="text-[10px] text-slate-400">Microsoft Word (.docx) files up to 4MB. PDFs are not accepted.</span>
+                      </div>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept=".docx"
+                        className="hidden" 
+                      />
+                    </div>
+                  </div>
+
+                  {fileError && <p className="text-[10px] text-rose-500 font-semibold">{fileError}</p>}
+
+                  {resumeFile && (
+                    <div className="p-3.5 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">📄</span>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-slate-900 truncate max-w-xs">{resumeFile.name}</span>
+                          <span className="text-[9px] text-slate-500">({(resumeFile.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={removeFile}
+                        className="text-rose-500 hover:text-rose-700 font-bold"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Opening selector group */}
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">3. Target Job Opening</h3>
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Select Job Opening</label>
+                    <select 
+                      value={selectedJobId} 
+                      onChange={(e) => setSelectedJobId(e.target.value)}
+                      required
+                      className="py-2 px-3 border border-slate-300 bg-white rounded-lg text-xs outline-none focus:border-blue-500 transition-all"
+                    >
+                      <option value="">-- Choose target opening --</option>
+                      {jobOpenings.map(job => (
+                        <option key={job.id} value={job.id}>{job.title} ({job.company})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={!isFormValid()}
+                  className={`w-full py-2.5 rounded-lg text-xs font-bold text-center transition-all ${
+                    isFormValid() 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm" 
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  }`}
+                >
+                  Review Screening Details
+                </button>
+
+              </form>
+            )}
+
+            {/* STEP 2: REVIEW CARD DETAILS */}
+            {formStep === "review" && selectedJob && (
+              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-6 animate-fadeIn">
+                <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Review Screening Submission</h3>
+                
+                <div className="divide-y divide-slate-100 text-xs">
+                  <div className="py-3 grid grid-cols-3 gap-4">
+                    <span className="font-semibold text-slate-400">Candidate Name</span>
+                    <span className="col-span-2 font-medium text-slate-900">{form.name}</span>
+                  </div>
+                  <div className="py-3 grid grid-cols-3 gap-4">
+                    <span className="font-semibold text-slate-400">Email</span>
+                    <span className="col-span-2 font-medium text-slate-900">{form.email}</span>
+                  </div>
+                  <div className="py-3 grid grid-cols-3 gap-4">
+                    <span className="font-semibold text-slate-400">Phone</span>
+                    <span className="col-span-2 font-medium text-slate-900">{form.phone}</span>
+                  </div>
+                  <div className="py-3 grid grid-cols-3 gap-4">
+                    <span className="font-semibold text-slate-400">Location</span>
+                    <span className="col-span-2 font-medium text-slate-900">{form.currentLocation}</span>
+                  </div>
+                  <div className="py-3 grid grid-cols-3 gap-4">
+                    <span className="font-semibold text-slate-400">Resume File</span>
+                    <span className="col-span-2 font-medium text-slate-900">{resumeFile?.name} ({(resumeFile!.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                  <div className="py-3 grid grid-cols-3 gap-4">
+                    <span className="font-semibold text-slate-400">Applying for</span>
+                    <div className="col-span-2 flex flex-col gap-0.5">
+                      <span className="font-semibold text-slate-900">{selectedJob.title}</span>
+                      <span className="text-[10px] text-slate-500">{selectedJob.company}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* API Key Hint if none set */}
+                {tempApiKey.trim() === "" && (
+                  <div className="p-3 rounded bg-blue-50 border border-blue-100 text-[10px] text-blue-800 leading-normal flex items-start gap-2">
+                    <span>💡</span>
+                    <span>No personal API key configured in Settings. The server will run in Simulated/Mock Mode. To run live LLM analysis, configure your key in settings.</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormStep("form")}
+                    className="flex-1 py-2 px-4 border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors text-center"
+                  >
+                    Back to Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={triggerScreening}
+                    className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors text-center shadow-sm"
+                  >
+                    Initiate AI Screening
+                  </button>
                 </div>
               </div>
+            )}
+
+            {/* STEP 3: SCREENING ACTIVE LOADER */}
+            {formStep === "screening" && (
+              <div className="mx-auto max-w-md bg-white p-8 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-6">
+                <div className="relative w-12 h-12">
+                  <div className="w-12 h-12 rounded-full border-4 border-slate-100 border-t-blue-600 animate-spin"></div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-sm font-bold text-slate-900">Comparing candidate against opening...</h3>
+                  <p className="text-xs text-slate-500 px-4">
+                    Reading resume text, evaluating strengths, and generating follow-up recruiter questions. This takes approximately 10–15 seconds.
+                  </p>
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* TAB 4: GLOBAL CANDIDATES VIEW */}
+        {activeTab === "candidates" && (
+          <div className="flex flex-col gap-6 animate-fadeIn">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Global Candidates</h2>
+              <p className="text-xs text-slate-500">Unified list of all unique job applicants screened across roles.</p>
             </div>
 
-            {/* Results Grid layout */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-              
-              {/* Left Side: Fit & Strengths */}
-              <div className="md:col-span-7 flex flex-col gap-6">
-                
-                {/* Overall Fit */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Overall Fit</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed font-normal">{screeningResult.overall_fit}</p>
-                </div>
-
-                {/* Strong Matches */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Strong Matches</h3>
-                  {screeningResult.strong_matches && screeningResult.strong_matches.length > 0 ? (
-                    <ul className="flex flex-col gap-3">
-                      {screeningResult.strong_matches.map((strength, index) => (
-                        <li key={index} className="flex gap-2.5 text-xs text-slate-600 leading-relaxed">
-                          <span className="text-emerald-500 font-semibold shrink-0">✓</span>
-                          <span>{strength}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic py-1">No significant matching requirements found in the resume for this position.</p>
-                  )}
-                </div>
+            {/* Table wrapper */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 border-b border-slate-100 uppercase tracking-wider text-[9px] font-bold">
+                      <th className="px-5 py-3">Candidate</th>
+                      <th className="px-5 py-3">Contact Details</th>
+                      <th className="px-5 py-3">Latest Target Openings</th>
+                      <th className="px-5 py-3">Location</th>
+                      <th className="px-5 py-3 text-right">Evaluations</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {getGlobalCandidates().length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-12 text-center text-slate-400 italic">No candidates evaluated in this workspace yet.</td>
+                      </tr>
+                    ) : (
+                      getGlobalCandidates().map((c, index) => (
+                        <tr key={index} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-5 py-4 font-semibold text-slate-950">
+                            {c.name}
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex flex-col">
+                              <span>{c.email}</span>
+                              <span className="text-[10px] text-slate-400">{c.phone}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-slate-800">{c.latestRole}</span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getScoreRating(c.latestScore).color}`}>
+                                {c.latestScore}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-slate-500">
+                            {c.location}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold">
+                              {c.applicationsCount} role(s)
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* Right Side: Gaps & Actions */}
-              <div className="md:col-span-5 flex flex-col gap-6">
-                
-                {/* Gaps & Follow-up Questions */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                  <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Gaps & Interview Questions</h3>
-                  
-                  {screeningResult.gaps_and_questions && screeningResult.gaps_and_questions.length > 0 ? (
-                    <div className="flex flex-col gap-5 divide-y divide-slate-100">
-                      {screeningResult.gaps_and_questions.map((item, index) => (
-                        <div key={index} className={`flex flex-col gap-2 ${index > 0 ? "pt-4" : ""}`}>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Gap / Uncertainty</span>
-                            <p className="text-xs text-slate-700 leading-relaxed">{item.gap}</p>
-                          </div>
-                          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex flex-col gap-1">
-                            <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Ask Recruiter Question</span>
-                            <p className="text-xs font-semibold text-slate-800 leading-relaxed italic">"{item.question}"</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic py-1">No significant gaps or uncertainties detected.</p>
+        {/* TAB 5: SETTINGS VIEW */}
+        {activeTab === "settings" && (
+          <div className="mx-auto max-w-xl flex flex-col gap-8 animate-fadeIn">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Workspace Settings</h2>
+              <p className="text-xs text-slate-500">Configure credentials and local testing parameters.</p>
+            </div>
+
+            {/* API key settings card */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">LLM Provider Authentication</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                By default, Vercel deployments read the secure server-side environment key. You can override it locally in this browser session by supplying your own API key below.
+              </p>
+              
+              <form onSubmit={handleSaveApiKey} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-slate-700">API Key Override (Groq, Gemini, or Grok/xAI)</label>
+                  <input 
+                    type="password" 
+                    placeholder="Enter gsk_... or AQ... or xai-..."
+                    value={tempApiKey}
+                    onChange={(e) => setTempApiKey(e.target.value)}
+                    className="py-1.5 px-3 border border-slate-300 rounded-lg text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono"
+                  />
+                  <span className="text-[9px] text-slate-400">Saved in your browser's LocalStorage. Will not be sent anywhere except your secure backend routes.</span>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    type="submit" 
+                    className="py-1.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                  >
+                    Save Key locally
+                  </button>
+                  {tempApiKey && (
+                    <button 
+                      type="button" 
+                      onClick={() => { setTempApiKey(""); localStorage.removeItem("clara_temp_key"); alert("Local API key override cleared!"); }}
+                      className="py-1.5 px-4 border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                    >
+                      Clear Override
+                    </button>
                   )}
                 </div>
+              </form>
+            </div>
 
-                {/* Rescreen Buttons */}
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={resetAll}
-                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors text-center shadow-sm"
-                  >
-                    Screen Another Candidate
-                  </button>
-                  <button
-                    onClick={() => {
-                      setStep("form");
-                      setScreeningResult(null);
-                    }}
-                    className="w-full py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors text-center"
-                  >
-                    Modify Candidate Info
-                  </button>
-                </div>
-
+            {/* Database reset settings card */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">Workspace Reset Actions</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Clear all candidate evaluations saved in this browser and restore the pre-populated dashboard demonstration profiles.
+              </p>
+              <div>
+                <button 
+                  onClick={handleResetDatabase}
+                  className="py-2 px-4 border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-lg transition-colors"
+                >
+                  Reset Dashboard Database
+                </button>
               </div>
             </div>
           </div>

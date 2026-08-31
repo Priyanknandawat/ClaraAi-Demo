@@ -432,8 +432,8 @@ Experience Required:
 ${job.experience.map((e) => `- ${e}`).join("\n")}
 `;
 
-    // Extract API Key
-    const apiKey = process.env.LLM_API_KEY || process.env.GROK_API_KEY;
+    // Extract API Key from headers or environment variables
+    const apiKey = req.headers.get("x-llm-api-key") || process.env.LLM_API_KEY || process.env.GROK_API_KEY;
 
     if (!apiKey) {
       // Return mock screening if no API key is set
