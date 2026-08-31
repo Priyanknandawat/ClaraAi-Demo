@@ -131,19 +131,19 @@ const defaultSampleScreenings: SavedScreening[] = [
   },
   {
     id: "scr-3",
-    candidateName: "Priyank Nandawat",
-    candidateEmail: "priyank@example.com",
-    candidatePhone: "+91 93588 80813",
-    candidateAddress: "Mansarovar, Jaipur, Rajasthan",
-    candidateAge: 22,
-    candidateLocation: "Jaipur",
+    candidateName: "Rohan Kapoor",
+    candidateEmail: "rohan.kapoor@example.com",
+    candidatePhone: "+91 98200 11223",
+    candidateAddress: "Bandra West, Mumbai, Maharashtra",
+    candidateAge: 24,
+    candidateLocation: "Mumbai",
     jobId: "opening-a",
     jobTitle: "Founders Office Associate",
     jobCompany: "Satva Partners",
     matchScore: 68,
-    overallFit: "Priyank has strong technical agility and rapid execution capabilities. While his primary background is engineering and automation, his structured problem solving and initiative provide foundational aptitude.",
+    overallFit: "Rohan has strong technical agility and rapid execution capabilities. While his primary background is operations and product coordination, his structured problem solving and initiative provide foundational aptitude.",
     strongMatches: [
-      "Demonstrated fast technical execution and CRM workflow design",
+      "Demonstrated fast operational execution and project workflow design",
       "Clear structured communication and ownership mindset"
     ],
     gapsAndQuestions: [
@@ -364,7 +364,7 @@ export default function ClaraAiPlatform() {
     } else if (cleanedPhone.length < 8 || cleanedPhone.length > 15) {
       errors.phone = "Phone number must contain between 8 and 15 digits.";
     } else if (!/^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{7,15}$/.test(data.phone.trim())) {
-      errors.phone = "Please enter a valid phone number (e.g. +91 93588 80813).";
+      errors.phone = "Please enter a valid phone number (e.g. +91 98200 11223).";
     }
 
     // Current Location: Min 2 characters
@@ -1869,7 +1869,7 @@ export default function ClaraAiPlatform() {
                           name="name"
                           value={form.name}
                           onChange={handleFormChange}
-                          placeholder="e.g. Priyank Nandawat"
+                          placeholder="e.g. Rohan Kapoor"
                           className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                             formErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                           }`}
@@ -1886,7 +1886,7 @@ export default function ClaraAiPlatform() {
                           name="email"
                           value={form.email}
                           onChange={handleFormChange}
-                          placeholder="priyank@example.com"
+                          placeholder="rohan.kapoor@example.com"
                           className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                             formErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                           }`}
@@ -1903,7 +1903,7 @@ export default function ClaraAiPlatform() {
                           name="phone"
                           value={form.phone}
                           onChange={handleFormChange}
-                          placeholder="+91 93588 80813"
+                          placeholder="+91 98200 11223"
                           className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                             formErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                           }`}
@@ -1920,7 +1920,7 @@ export default function ClaraAiPlatform() {
                           name="currentLocation"
                           value={form.currentLocation}
                           onChange={handleFormChange}
-                          placeholder="e.g. Udaipur, Rajasthan"
+                          placeholder="e.g. Mumbai / Bengaluru"
                           className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                             formErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                           }`}
@@ -2443,7 +2443,7 @@ export default function ClaraAiPlatform() {
                             name="name"
                             value={candidateForm.name}
                             onChange={handleCandidateFormChange}
-                            placeholder="e.g. Priyank Nandawat"
+                            placeholder="e.g. Rohan Kapoor"
                             className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                               candidateFormErrors.name ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                             }`}
@@ -2462,7 +2462,7 @@ export default function ClaraAiPlatform() {
                             name="email"
                             value={candidateForm.email}
                             onChange={handleCandidateFormChange}
-                            placeholder="priyank@example.com"
+                            placeholder="rohan.kapoor@example.com"
                             className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                               candidateFormErrors.email ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                             }`}
@@ -2481,7 +2481,7 @@ export default function ClaraAiPlatform() {
                             name="phone"
                             value={candidateForm.phone}
                             onChange={handleCandidateFormChange}
-                            placeholder="+91 93588 80813"
+                            placeholder="+91 98200 11223"
                             className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                               candidateFormErrors.phone ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                             }`}
@@ -2500,7 +2500,7 @@ export default function ClaraAiPlatform() {
                             name="currentLocation"
                             value={candidateForm.currentLocation}
                             onChange={handleCandidateFormChange}
-                            placeholder="e.g. Udaipur / Bengaluru"
+                            placeholder="e.g. Mumbai / Bengaluru"
                             className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none bg-white transition-all ${
                               candidateFormErrors.location ? "border-rose-500 bg-rose-50/30" : "border-slate-300 focus:border-blue-500"
                             }`}
